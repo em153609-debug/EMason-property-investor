@@ -63,3 +63,12 @@ This version still relies on manual review for high-quality comp data. It does n
 
 ### Update procedure
 Upload this update ZIP into the existing Codespace, ensure `git status` shows no uncommitted tracked changes, then unzip into the project root. Run `python -m pytest -q`. Commit only the updated source files from the release ZIP. Do not commit the ZIP, API credentials or `.streamlit/secrets.toml`.
+
+
+## V1.5 — dark contrast, explanations and real geographic comp search
+- Dark navy UI, bright contrasting input controls, consistent dark theme for desktop/mobile.
+- Three-column summary of strengths, risks and verifications in Investment Decision, with existing detailed category expanders preserved.
+- Optional **Search additional nearby sold records and rental listings** in Research. Uses RentCast `GET /properties` with `address`, `radius`, `saleDateRange`, and `GET /listings/rental/long-term` with `address`, `radius`. Two additional API requests per distinct set of query parameters, cached 24 hours.
+- Sale results are reported past sale records but not proof of renovated condition; rental data is asking rent not executed leases. Both import unselected. Confirm individual comps before use.
+- No changes to Supabase schema, stored deal ownership, keys or Secrets.
+- A live API and Streamlit-hosted smoke test must be completed after deployment.

@@ -6,39 +6,53 @@ from core.engine import Deal, analyze, max_offer, sensitivities
 
 st.set_page_config(page_title='EMason Property Investor',page_icon='🏘️',layout='wide', initial_sidebar_state='collapsed')
 st.markdown("""<style>
-/* EMason design system: ink / teal / cool slate; resilient to dark mode */
-.stApp { background: #f5f7fb; color: #15263c; }
-.block-container { max-width: 1340px; padding-top: 1.25rem; padding-bottom: 4rem; }
-[data-testid="stHeader"] { background: rgba(245,247,251,.94); }
-h1,h2,h3 { letter-spacing: -.035em; color: #17304a; }
-h2 { padding-top: .3rem; }
-[data-testid="stSidebar"] { background: #eaf1f5; border-right:1px solid #d7e3ea; }
-[data-testid="stMetric"] { background: #ffffff; padding: 1.0rem 1.1rem; border:1px solid #dae5ec; border-radius:14px; box-shadow:0 2px 7px #11283a08; }
-[data-testid="stMetricLabel"] { color:#526477; font-weight:650; }
-[data-testid="stMetricValue"] { color:#132d46; font-weight:780; letter-spacing:-.035em; }
-[data-testid="stTabs"] [role="tablist"] { background:#e7eef4; padding:5px; gap:4px; border-radius:12px; }
-[data-testid="stTabs"] button[role="tab"] { border-radius:9px; padding:12px 15px; font-weight:660; }
-[data-testid="stTabs"] button[aria-selected="true"] { background:#fff; color:#116d75; box-shadow:0 1px 5px #0a2e4521; }
-.stButton button[kind="primary"], .stDownloadButton button[kind="primary"] { background:#087f81; border:0; color:#fff; border-radius:10px; font-weight:750; }
-.stButton button { border-radius:10px; font-weight:620; }
-[data-testid="stVerticalBlockBorderWrapper"] { border-radius:16px; }
-[data-testid="stExpander"] { border:1px solid #dbe5ec; background:#fff; border-radius:12px; }
-.hero { padding: 1.65rem 1.8rem; border-radius:20px; background:linear-gradient(115deg,#132c44,#1d4558 68%,#127979); color:white; margin-bottom:1.5rem; box-shadow:0 9px 25px #163e5220; }
-.hero-kicker { font-weight:750; font-size:.73rem; color:#9de9df; letter-spacing:.14em; }
-.hero-title { font-size:2.0rem; font-weight:850; color:white; letter-spacing:-.045em; margin:.2rem 0; }
-.hero-sub { color:#d5e9ef; font-size:.95rem; }
-.strategy { background:#fff; border:1px solid #dbe7ec; border-radius:17px; padding:1.3rem; margin:.3rem 0; }
-.strategy h3 { margin:0 0 .5rem 0; }
-.strategy-score { font-size:2.6rem; font-weight:850; color:#0e6c76; line-height:1.2; }
-.strategy-meta { font-size:.85rem; color:#526477; }
-.section-eyebrow { color:#14767c; font-size:.8rem; font-weight:800; letter-spacing:.10em; text-transform:uppercase; }
+/* V1.5 dark professional theme with contrasting input surfaces */
+:root {color-scheme: dark;}
+.stApp, [data-testid="stAppViewContainer"] { background:#101b2a !important; color:#e8f0f8 !important; }
+.block-container { max-width:1360px; padding-top:1.25rem; padding-bottom:4rem; }
+[data-testid="stHeader"] {background:#101b2af0 !important;}
+[data-testid="stSidebar"] {background:#152638 !important; border-right:1px solid #315067;}
+[data-testid="stSidebar"] * {color:#e8f0f8;}
+h1,h2,h3,h4,p,li,[data-testid="stMarkdownContainer"] {color:#e8f0f8;}
+[data-testid="stCaptionContainer"], .stCaption {color:#a9bdce !important;}
+[data-testid="stMetric"] {background:#1b3044 !important; padding:1.0rem 1.1rem; border:1px solid #365267; border-radius:14px;}
+[data-testid="stMetricLabel"] {color:#bbd0dc !important; font-weight:650;}
+[data-testid="stMetricValue"] {color:#f7fbff !important; font-weight:780;}
+[data-testid="stTabs"] [role="tablist"] {background:#17293b; padding:6px; gap:5px; border-radius:12px;}
+[data-testid="stTabs"] button[role="tab"] {border-radius:9px; padding:12px 16px; font-weight:700; color:#bbcfda;}
+[data-testid="stTabs"] button[aria-selected="true"] {background:#264759; color:#73e6d1;}
+[data-testid="stExpander"], [data-testid="stVerticalBlockBorderWrapper"] {background:#17293b; border:1px solid #365267; border-radius:13px;}
+/* Consistently visible fields, including select, numeric, text, dates and data editor */
+[data-baseweb="input"] > div, [data-baseweb="select"] > div, [data-baseweb="textarea"] > div,
+[data-testid="stNumberInput"] input, [data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea {background:#27415a !important; color:#ffffff !important; border-color:#52758d !important; border-radius:9px;}
+[data-baseweb="input"] input, [data-baseweb="select"] input, [data-baseweb="select"] [role="combobox"] {color:#ffffff !important;}
+[data-baseweb="input"] input::placeholder, textarea::placeholder {color:#acc2d2 !important; opacity:1;}
+[data-baseweb="popover"], [role="listbox"], [data-baseweb="menu"] {background:#243c53 !important; color:#fff !important;}
+[data-testid="stDataFrame"], [data-testid="stDataEditor"] {border:1px solid #365267; border-radius:10px;}
+label,[data-testid="stWidgetLabel"] {color:#d7e6f0 !important; font-weight:630;}
+.stButton button[kind="primary"], .stDownloadButton button[kind="primary"] {background:#0eaaa2 !important; color:#071b22 !important; border:0; font-weight:800; border-radius:10px;}
+.stButton button[kind="secondary"], .stDownloadButton button {background:#28445b !important; color:#f2f8ff !important; border:1px solid #52758d !important; border-radius:10px; font-weight:670;}
+.hero {padding:1.6rem 1.9rem; border-radius:19px; background:linear-gradient(113deg,#172d43,#214359 72%,#126b70); border:1px solid #426579; margin-bottom:1.25rem;}
+.hero-kicker {font-weight:800; font-size:.74rem; color:#8af1dd; letter-spacing:.12em;}
+.hero-title {font-size:2.05rem; font-weight:850; color:#fff; letter-spacing:-.045em; margin:.2rem 0;}
+.hero-sub {color:#ccdeeb; font-size:.96rem;}
+.section-eyebrow {color:#82e5d3 !important; font-size:.79rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase;}
+.insight {background:#1a3044; border:1px solid #3a5870; border-radius:12px; padding:12px 16px; margin:7px 0; line-height:1.5; color:#e6f2fa;}
+.insight.good {border-left:4px solid #3ed6a7;} .insight.risk {border-left:4px solid #ffb85c;} .insight.verify {border-left:4px solid #8eafe6;}
+@media(max-width:760px) {.block-container {padding-left:.75rem;padding-right:.75rem;padding-top:1rem;} .hero{padding:1.2rem;} .hero-title{font-size:1.55rem;} [data-testid="stTabs"] button[role="tab"]{padding:8px 10px;}}
 </style>""", unsafe_allow_html=True)
-st.markdown("<div class='hero'><div class='hero-kicker'>REAL ESTATE INVESTMENT WORKSPACE · V1.4</div><div class='hero-title'>EMason Property Investor</div><div class='hero-sub'>One property. Two strategies. Transparent numbers and comparable evidence.</div></div>", unsafe_allow_html=True)
+st.markdown("<div class='hero'><div class='hero-kicker'>PROPERTY UNDERWRITING · V1.5</div><div class='hero-title'>EMason Property Investor</div><div class='hero-sub'>Analyze, compare and explain BRRRR vs Fix & Flip opportunities.</div></div>", unsafe_allow_html=True)
 
 @st.cache_data(ttl=86400,show_spinner=False)
 def rentcast_data(address,key,valuations):
     from services.rentcast import fetch
     return fetch(address,key,valuations)
+
+@st.cache_data(ttl=86400,show_spinner=False)
+def geographic_data(address,key,radius,age_months,kind):
+    from services.market_search import search_nearby
+    return search_nearby(address,key,radius,age_months,kind=kind)
 
 if 'deal' not in st.session_state: st.session_state.deal=Deal()
 if 'lookup' not in st.session_state: st.session_state.lookup={}
@@ -98,6 +112,36 @@ with tabs[0]:
             st.success(f'Found {len(sales)} sale and {len(rentals)} rental candidates. They are in the comp workbench below, awaiting your review.')
         except Exception as exc:
             st.error(f'Property lookup failed: {exc}')
+    with st.expander('Search additional nearby sold records and rental listings', expanded=False):
+        st.caption('This performs a real radius search at RentCast, separate from the AVM candidates above. Each click can use two extra API requests (cached for 24 hours).')
+        m1,m2,m3=st.columns([1,1,1.3])
+        with m1:
+            market_radius=st.selectbox('Actual API radius (miles)',[0.5,1.0,2.0,3.0,5.0,10.0],index=2,key='market_radius')
+        with m2:
+            market_age=st.selectbox('Sold lookback (months)',[3,6,9,12,18,24],index=1,key='market_age')
+        with m3:
+            market_max=st.selectbox('Maximum candidates per source',[10,20,30],index=1,key='market_limit',help='Limit applied locally after retrieval; the API is capped to 30 records per call.')
+        st.caption('Sales come from property records showing past sale prices and dates; rental results are listing asking rents. Verify both before underwriting.')
+        market_pressed=st.button('Search wider market by radius',disabled=not bool(rentcast_key and d.address.strip()),use_container_width=True)
+        if market_pressed:
+            from services.comp_merge import merge_comp_rows
+            from services.geo import coords,attach_distances
+            try:
+                with st.spinner('Searching recently sold records and rental listings…'):
+                    sr=geographic_data(d.address.strip(),rentcast_key,market_radius,market_age,d.kind)
+                subject_coordinates=st.session_state.get('subject_coordinates')
+                for category in ('sale','rent'):
+                    key='comp_rows_'+category
+                    candidates=attach_distances(sr[category][:market_max],subject_coordinates)
+                    prev=st.session_state.get(key,[])
+                    if st.session_state.get('market_import_address','').casefold() not in ('',d.address.strip().casefold()):
+                        prev=[]
+                    st.session_state[key]=merge_comp_rows(prev,candidates)
+                st.session_state.market_import_address=d.address.strip()
+                st.session_state.comp_import_version+=1
+                st.success(f"Imported {min(market_max,len(sr['sale']))} sold-record and {min(market_max,len(sr['rent']))} rental-listing candidates. Review them below.")
+            except Exception as exc:
+                st.error(f'Market search failed: {exc}')
     c1,c2,c3,c4=st.columns(4)
     with c1: d.kind=st.selectbox('Type',['Single Family','Duplex','Triplex','Fourplex'],index=['Single Family','Duplex','Triplex','Fourplex'].index(d.kind))
     d.units={'Single Family':1,'Duplex':2,'Triplex':3,'Fourplex':4}[d.kind]
@@ -158,12 +202,12 @@ with tabs[0]:
         st.markdown('**Comparable screening preferences**')
         filter_a,filter_b,filter_c=st.columns([1,1,1.35])
         with filter_a:
-            radius=st.selectbox('Search radius',options=[0.5,1.0,2.0,3.0,5.0,10.0],index=2,format_func=lambda x:f'{x:g} miles',help='Filters imported candidates when coordinates or analyst-entered distance are known. Does not change the provider API search radius.')
+            radius=st.selectbox('Workbench radius filter',options=[0.5,1.0,2.0,3.0,5.0,10.0],index=2,format_func=lambda x:f'{x:g} miles',help='Filters imported candidates when coordinates or analyst-entered distance are known. Does not change the provider API search radius.')
         with filter_b:
             age_window=st.selectbox('Maximum comp age',options=[3,6,9,12,18,24],index=1,format_func=lambda x:f'{x} months',help='Uses the row date; provider dates may represent listing activity rather than verified sale dates.')
         with filter_c:
             unknown_distance=st.checkbox('Exclude unknown-distance comps',value=False,help='When checked, comps without verifiable distance cannot be included in the indicated value/rent.')
-        st.caption('The radius/date controls filter the retrieved candidate pool; they do not ask RentCast to perform a new geographic search. Date fields from automatic imports describe listing activity, not guaranteed closing dates.')
+        st.caption('These controls screen candidate rows after import. For an actual new API search radius, use Search additional nearby sold records and rental listings above. Each row identifies whether its date represents a recorded sale or listing activity.')
     for comp_type, label in [('sale','Renovated sale comps'), ('rent','Comparable rental listings / leases')]:
         with st.expander(label, expanded=False):
             st.write('Add or edit rows. Mark **renovated** only after you review condition/photos for sale comps. Enter ISO dates such as 2026-08-15. Only checked rows count.')
@@ -257,7 +301,7 @@ with tabs[3]:
     try:
         result=analyze(d)
         st.session_state.last_analysis={'inputs':asdict(d),'results':result,'timestamp':datetime.now(timezone.utc).isoformat(),
-                                        'analysis_version':'1.4',
+                                        'analysis_version':'1.5',
                                         'comparable_inputs':{'sales':st.session_state.get('comp_rows_sale',[]),'rentals':st.session_state.get('comp_rows_rent',[])}}
         b,f=result['brrrr'],result['flip']
         def money(value):
@@ -309,6 +353,22 @@ with tabs[3]:
         q1.metric('BRRRR maximum offer',f'${max_b:,.0f}' if max_b is not None else 'No feasible price in range')
         q2.metric('Flip maximum offer',f'${max_f:,.0f}' if max_f is not None else 'No feasible price in range')
         st.caption('Calculated by testing prices against the hard financial targets; not a seller acceptance prediction.')
+        from core.insights import build_insights
+        insights=build_insights(d,result)
+        st.subheader('Decision explained — at a glance')
+        st.caption('Prioritized findings from your actual inputs and scoring rules. Open the detailed category explanations below for formulas and thresholds.')
+        ic1,ic2,ic3=st.columns(3,gap='medium')
+        for col,label,klass,emoji,items in [
+            (ic1,'Strengths','good','✅',insights['strengths']),
+            (ic2,'Risks & shortfalls','risk','⚠️',insights['risks']),
+            (ic3,'Verify before offering','verify','🔎',insights['verifications'])]:
+            with col:
+                st.markdown(f'#### {emoji} {label}')
+                if not items: st.caption('None currently identified from the modeled inputs.')
+                for msg in items[:5]:
+                    import html
+                    st.markdown(f'<div class="insight {klass}">{html.escape(msg)}</div>',unsafe_allow_html=True)
+        st.divider()
         st.markdown('### Why each strategy scored this way')
         st.caption('Open any category to see actual results, thresholds, and actions that could improve confidence or economics.')
         for heading,section in [('BRRRR score explained',b),('Fix & Flip score explained',f)]:
