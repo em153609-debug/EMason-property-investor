@@ -23,12 +23,12 @@ sb_key=secrets.get('SUPABASE_PUBLISHABLE_KEY','')
 
 with st.sidebar:
     st.header('Deal Settings')
-    
     d.minimum_cashflow = st.number_input("Minimum monthly cash flow ($)", min_value=0.0, max_value=5000.0, value=float(d.minimum_cashflow), step=25.0)
-    d.minimum_recovery=st.number_input('BRRRR cash recovery target (%)',0,100,int(d.minimum_recovery*100))/100
-    d.minimum_dscr=st.number_input('Minimum DSCR',0.5,3.0,float(d.minimum_dscr),step=.05)
-    d.flip_min_profit=st.number_input('Flip minimum profit ($)',0,250000,float(d.flip_min_profit),step=1000.)
-    d.flip_min_roi=st.number_input('Flip minimum ROI (%)',0,100,int(d.flip_min_roi*100))/100
+    d.minimum_recovery = st.number_input("BRRRR cash recovery target (%)", min_value=0.0, max_value=100.0, value=float(d.minimum_recovery * 100), step=5.0) / 100
+    d.minimum_dscr = st.number_input("Minimum DSCR", min_value=0.5, max_value=3.0, value=float(d.minimum_dscr), step=0.05)
+    d.flip_min_profit = st.number_input("Flip minimum profit ($)", min_value=0.0, max_value=250000.0, value=float(d.flip_min_profit), step=1000.0)
+    d.flip_min_roi = st.number_input("Flip minimum ROI (%)", min_value=0.0, max_value=100.0, value=float(d.flip_min_roi * 100), step=5.0) / 100
+
     st.info('Visitors can analyze anonymously. Saving requires an authenticated Supabase account.')
 
 tabs=st.tabs(['🏠 Property & Comps','🔨 Rehab','💵 Finance & Operating','📊 Deal Verdict','💾 Saved Deals'])
