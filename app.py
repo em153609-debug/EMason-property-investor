@@ -4,9 +4,21 @@ from datetime import datetime, timezone
 import streamlit as st
 from core.engine import Deal, analyze, max_offer, sensitivities
 
-st.set_page_config(page_title='EMason Property Investor',page_icon='🏠',layout='wide')
-st.title('🏠 EMason Property Investor')
-st.caption('Cleveland-area BRRRR + Fix & Flip | v1.2 • Preliminary underwriting; not an appraisal or loan approval')
+st.set_page_config(page_title='EMason Property Investor',page_icon='🏘️',layout='wide', initial_sidebar_state='collapsed')
+st.markdown('''<style>
+.block-container{max-width:1320px;padding-top:1.6rem;padding-bottom:3rem}
+h1,h2,h3{letter-spacing:-.035em} h1{font-weight:800!important}
+[data-testid="stMetric"]{background:#f6f9fc;border:1px solid #e3eaf1;border-radius:15px;padding:15px}
+[data-testid="stMetricLabel"]{font-weight:650}
+[data-testid="stTabs"] button{font-weight:650;padding:14px 17px}
+[data-testid="stSidebar"]{border-right:1px solid #e5e7eb}
+.stButton button[kind="primary"]{border-radius:10px;font-weight:700}
+.section-note{color:#64748b;font-size:.93rem}
+.hero{padding:1.1rem 1.4rem;border:1px solid #dfe8f1;border-radius:18px;background:linear-gradient(105deg,#f4faf8,#f7f9fe);margin-bottom:1.3rem}
+.hero-title{font-size:1.65rem;font-weight:800;color:#10283b;margin-bottom:.2rem}
+.hero-sub{color:#536477;font-size:.94rem}
+</style>''',unsafe_allow_html=True)
+st.markdown('''<div class="hero"><div class="hero-title">🏘️ EMason Property Investor</div><div class="hero-sub">Evaluate BRRRR vs. Fix & Flip · Evidence-driven investment decisions · Version 1.3</div></div>''', unsafe_allow_html=True)
 
 @st.cache_data(ttl=86400,show_spinner=False)
 def rentcast_data(address,key,valuations):
@@ -16,6 +28,7 @@ def rentcast_data(address,key,valuations):
 if 'deal' not in st.session_state: st.session_state.deal=Deal()
 if 'lookup' not in st.session_state: st.session_state.lookup={}
 if 'comp_import_version' not in st.session_state: st.session_state.comp_import_version=0
+if 'address_last_imported' not in st.session_state: st.session_state.address_last_imported='' 
 d=st.session_state.deal
 secrets=st.secrets
 rentcast_key=secrets.get('RENTCAST_API_KEY','')
@@ -33,91 +46,88 @@ with st.sidebar:
 
 tabs=st.tabs(['🏠 Property & Comps','🔨 Rehab','💵 Finance & Operating','📊 Deal Verdict','💾 Saved Deals'])
 with tabs[0]:
-    st.subheader('1 · Property data')
-    d.address=st.text_input('Property address',value=d.address,placeholder='123 Main St, Lakewood, OH 44107')
+    st.subheader('Find & evaluate a property')
+    st.caption('Enter a complete US address. One click retrieves available property details, value/rent estimates and nearby comparable candidates. Cleveland is the default focus, not a geographic restriction.')
+    addr_col, lookup_col=st.columns([5,2],vertical_alignment='bottom')
+    with addr_col:
+        d.address=st.text_input('Property address',value=d.address,placeholder='123 Main St, Lakewood, OH 44107',help='Enter any US address supported by RentCast. Include city and state to avoid ambiguous results.')
+    with lookup_col:
+        search_pressed=st.button('🔎 Find property & comps',type='primary',use_container_width=True,disabled=not bool(rentcast_key and d.address.strip()))
+    st.caption('Uses up to 3 RentCast requests per uncached address; 24-hour cache. Search only runs when you click. Imported comps start unselected and unverified.')
+    if not rentcast_key:
+        st.warning('Add RENTCAST_API_KEY to Streamlit Secrets to enable lookup. Manual underwriting is still available.')
+    if search_pressed:
+        from services.comp_discovery import normalize_avm_candidates
+        from services.comp_merge import merge_comp_rows
+        try:
+            with st.spinner('Fetching property details and comparable candidates…'):
+                result=rentcast_data(d.address.strip(),rentcast_key,True)
+            fetched_addr=d.address.strip()
+            old_addr=st.session_state.address_last_imported
+            # When switching to a different address, do not silently attach the previous property's comps.
+            replace_subject=bool(old_addr and old_addr.casefold()!=fetched_addr.casefold())
+            sales=normalize_avm_candidates(result.get('value',{}),'sale',fetched_addr)
+            rentals=normalize_avm_candidates(result.get('rent',{}),'rent',fetched_addr)
+            for comp_type, candidates in [('sale',sales),('rent',rentals)]:
+                key='comp_rows_'+comp_type
+                previous=[] if replace_subject else st.session_state.get(key,[])
+                st.session_state[key]=merge_comp_rows(previous,candidates)
+            st.session_state.comp_import_version+=1
+            st.session_state.address_last_imported=fetched_addr
+            st.session_state.lookup={'retrieved_at':datetime.now(timezone.utc).isoformat(),'address':fetched_addr,'data':result}
+            st.success(f'Found {len(sales)} sale and {len(rentals)} rental candidates. They are in the comp workbench below, awaiting your review.')
+        except Exception as exc:
+            st.error(f'Property lookup failed: {exc}')
     c1,c2,c3,c4=st.columns(4)
     with c1: d.kind=st.selectbox('Type',['Single Family','Duplex','Triplex','Fourplex'],index=['Single Family','Duplex','Triplex','Fourplex'].index(d.kind))
     d.units={'Single Family':1,'Duplex':2,'Triplex':3,'Fourplex':4}[d.kind]
     with c2: d.price=st.number_input('Asking / offer price ($)',min_value=1000.,value=float(d.price),step=5000.)
     with c3: d.arv=st.number_input('After-repair value ($)',min_value=1000.,value=float(d.arv),step=5000.)
-    with c4: d.rent=st.number_input('Total monthly rent, all units ($)',min_value=0.,value=float(d.rent),step=100.)
-    with st.expander('Import available data from RentCast (uses API requests)',expanded=False):
-        if not rentcast_key:
-            st.warning('RentCast API key not configured. Manual entry works without it.')
-        else:
-            st.write('Property record lookup uses 1 API request. Value and rent estimates use up to 2 additional requests. Results are cached for 24 hours per address.')
-            want_valuations=st.checkbox('Include value and rent AVMs (+2 requests)',value=False)
-            if st.button('Lookup this address',disabled=not bool(d.address.strip())):
-                try:
-                    result=rentcast_data(d.address.strip(),rentcast_key,want_valuations)
-                    st.session_state.lookup={'retrieved_at':datetime.now(timezone.utc).isoformat(),'data':result}
-                    st.success('Data retrieved. Review the estimates before applying them.')
-                except Exception as exc: st.error(f'Lookup failed: {exc}')
-            lookup=st.session_state.lookup
-            if lookup:
-                st.caption('Retrieved at '+lookup['retrieved_at'])
-                data=lookup['data']; prop=data.get('property',[])
+    with c4: d.rent=st.number_input('Total monthly rent ($)',min_value=0.,value=float(d.rent),step=100.)
+    lookup=st.session_state.lookup
+    if lookup and lookup.get('address','').casefold()==d.address.strip().casefold():
+        data=lookup.get('data',{})
+        prop=data.get('property',[])
+        val=data.get('value',{}) or {}; rental=data.get('rent',{}) or {}
+        v=val.get('price') or val.get('value'); r=rental.get('rent')
+        with st.container(border=True):
+            st.markdown('**Latest property research**')
+            st.caption('Retrieved '+lookup['retrieved_at'][:19].replace('T',' ')+' UTC · Provider estimates are not renovated ARV or signed lease rents.')
+            cc1,cc2,cc3=st.columns(3)
+            cc1.metric('Value estimate',f'${v:,.0f}' if isinstance(v,(float,int)) else 'Unavailable')
+            cc2.metric('Rent estimate',f'${r:,.0f}' if isinstance(r,(float,int)) else 'Unavailable')
+            cc3.metric('Comparables retrieved',len(st.session_state.get('comp_rows_sale',[]))+len(st.session_state.get('comp_rows_rent',[])))
+            if isinstance(prop,list) and prop:
+                p=prop[0]
+                st.caption(f"Property: {p.get('bedrooms','?')} beds · {p.get('bathrooms','?')} baths · {p.get('squareFootage','?')} sq ft · Built {p.get('yearBuilt','?')}")
+            with st.expander('Review provider data and apply provisional estimates'):
                 if isinstance(prop,list) and prop:
-                    p=prop[0]
-                    st.json({k:p.get(k) for k in ('formattedAddress','propertyType','bedrooms','bathrooms','squareFootage','yearBuilt','lastSalePrice','propertyTaxes')})
-                value=data.get('value',{}); rent=data.get('rent',{})
-                if value or rent:
-                    c1,c2=st.columns(2)
-                    v=value.get('price') or value.get('value')
-                    r=rent.get('rent')
-                    c1.metric('Provider value estimate',f'${v:,.0f}' if isinstance(v,(float,int)) else 'Unavailable')
-                    c2.metric('Provider rent estimate',f'${r:,.0f}' if isinstance(r,(float,int)) else 'Unavailable')
-                    if isinstance(v,(float,int)) and st.button('Use value estimate as provisional ARV'):
-                        d.arv=float(v); st.rerun()
-                    if isinstance(r,(float,int)) and st.button('Use rental estimate'):
-                        d.rent=float(r); st.rerun()
-                    st.warning('Provider value may reflect current condition. Not a verified renovated-property ARV. Review returned comparables before relying on it.')
-                    for label,obj in [('Sales comparables',value),('Rental comparables',rent)]:
-                        comps=obj.get('comparables',[]) if isinstance(obj,dict) else []
-                        if comps:
-                            st.markdown('**'+label+'**')
-                            st.dataframe([{k:p.get(k) for k in ['formattedAddress','price','rent','squareFootage','bedrooms','bathrooms','lastSeenDate','correlation']} for p in comps],use_container_width=True,hide_index=True)
+                    st.json({k:prop[0].get(k) for k in ('formattedAddress','propertyType','bedrooms','bathrooms','squareFootage','yearBuilt','lastSalePrice','propertyTaxes')})
+                a1,a2=st.columns(2)
+                if a1.button('Use provider value as provisional ARV',disabled=not isinstance(v,(float,int))):
+                    d.arv=float(v)
+                    st.rerun()
+                if a2.button('Use provider rent as assumption',disabled=not isinstance(r,(float,int))):
+                    d.rent=float(r)
+                    st.rerun()
+                st.warning('A provider value estimate is not verified renovated ARV. A rental estimate is not a signed lease.')
+    elif lookup:
+        st.info('The address has changed since the last lookup. Click Find property & comps to refresh this property.')
     a,b=st.columns(2)
     with a: d.arv_confidence=st.selectbox('ARV evidence',['Unverified','Verified comps'],index=['Unverified','Verified comps'].index(d.arv_confidence),help='Choose Verified comps only after you review recent comparable sold renovated properties.')
     with b: d.rent_confidence=st.selectbox('Rent evidence',['Unverified','Verified comps'],index=['Unverified','Verified comps'].index(d.rent_confidence))
     st.caption('For multifamily enter total property value and total projected monthly rent. Verify zoning and legal unit count independently.')
 
     st.divider()
-    st.subheader('Comparable evidence workbench (V1.2)')
-    st.caption('Enter sold renovated properties and comparable rentals. You can copy candidates from the RentCast results above. This tool never silently declares an AVM a verified ARV.')
-    from services.comp_discovery import normalize_avm_candidates, candidate_summary
-    with st.expander('✨ Automatic comparable discovery from RentCast', expanded=True):
-        st.write('Retrieve **candidate** sales and rental comps from RentCast value/rent AVMs. This costs up to **3 API requests** per address (property record + 2 AVMs) and is cached for 24 hours. Provider candidates are **not verified closed sales or executed leases**.')
-        st.caption('To save requests, if you already retrieved value and rent AVMs above, use those cached results first.')
-        has_avms = bool(st.session_state.lookup.get('data', {}).get('value')) and bool(st.session_state.lookup.get('data', {}).get('rent'))
-        if st.button('Discover sales and rental candidates (up to 3 requests)', disabled=not bool(rentcast_key and d.address.strip())):
-            try:
-                # Reuses the cached property + valuation fetch when the same address was previously requested.
-                result = rentcast_data(d.address.strip(), rentcast_key, True)
-                st.session_state.lookup = {'retrieved_at':datetime.now(timezone.utc).isoformat(), 'data':result, 'address':d.address.strip()}
-                st.success('Candidates retrieved. Review and select the ones you want to use below.')
-            except Exception as exc:
-                st.error(f'Comparable lookup failed: {exc}')
-        lookup_data=st.session_state.lookup.get('data',{})
-        same_address=st.session_state.lookup.get('address', '').casefold() == d.address.strip().casefold()
-        # Legacy V1.1 lookup sessions may lack an address. No automatic reuse across changed subjects.
-        if same_address and lookup_data.get('value') and lookup_data.get('rent'):
-            candidates_sale=normalize_avm_candidates(lookup_data['value'],'sale',d.address)
-            candidates_rent=normalize_avm_candidates(lookup_data['rent'],'rent',d.address)
-            a1,a2=st.columns(2)
-            a1.metric('Sale candidates',len(candidates_sale))
-            a2.metric('Rental candidates',len(candidates_rent))
-            st.warning('Sale candidates may contain asking prices, not confirmed closing prices. The app will NOT automatically mark any sale as renovated or verified. Rental candidate prices may be asking rents.')
-            st.caption('Provider candidates are for screening only. For duplex/triplex/fourplex, confirm candidates represent entire comparable buildings; rental candidates may represent single units.')
-            if st.button('Import candidates to editable workbench (replace existing comp rows)'):
-                st.session_state.comp_rows_sale=candidates_sale
-                st.session_state.comp_rows_rent=candidates_rent
-                st.session_state.comp_import_version+=1
-                st.rerun()
-        elif not rentcast_key:
-            st.info('Add your RentCast API key in Streamlit Secrets to enable automatic discovery.')
-        else:
-            st.info('Search for an address above to retrieve comparable candidates.')
+    st.subheader('Nearby comparable evidence')
+    st.caption('Candidate comps are imported automatically when you click Find property & comps. Select and verify each one before using it for ARV or market rent.')
+    from services.comp_discovery import normalize_avm_candidates
+    sale_count=len(st.session_state.get('comp_rows_sale',[]))
+    rent_count=len(st.session_state.get('comp_rows_rent',[]))
+    a1,a2=st.columns(2)
+    a1.metric('Sale candidates to review',sale_count)
+    a2.metric('Rental candidates to review',rent_count)
+    st.info('Only checked comps enter the calculations. Closed sales, renovation condition, proximity, date, and whole-building vs. unit rental comparability require human verification.')
     from core.comps import evaluate_comps
     subject_sqft = st.number_input('Subject finished above-grade square footage', min_value=0, value=0, step=50,
                                    help='Enter from assessor or listing and verify. Required for sale $/sqft adjustment.')
@@ -205,16 +215,17 @@ with tabs[2]:
         with c2: d.sale_closing=st.number_input('Other sale closing costs (%)',0.,10.,float(d.sale_closing*100),step=.25)/100
         with c3: d.seller_concession=st.number_input('Buyer concessions (%)',0.,10.,float(d.seller_concession*100),step=.25)/100
 with tabs[3]:
-    st.subheader('4 · Investment decision')
+    st.subheader('BRRRR or Flip — which works better?')
+    st.caption('Investment scores depend on your assumptions; the financial targets and evidence checks below explain the recommendation.')
     try:
         result=analyze(d)
         st.session_state.last_analysis={'inputs':asdict(d),'results':result,'timestamp':datetime.now(timezone.utc).isoformat(),
-                                        'analysis_version':'1.2',
+                                        'analysis_version':'1.3',
                                         'comparable_inputs':{'sales':st.session_state.get('comp_rows_sale',[]),'rentals':st.session_state.get('comp_rows_rent',[])}}
         b,f=result['brrrr'],result['flip']
         x,y=st.columns(2)
         with x:
-            st.markdown('### 🏠 BRRRR')
+            st.markdown('### 🏠 BRRRR · Rental strategy')
             st.metric('Score',f"{b['score']}/100")
             st.write('**'+b['verdict']+'**')
             st.metric('Monthly cash flow',f"${b['monthly_cashflow']:,.0f}")
@@ -222,7 +233,7 @@ with tabs[3]:
             st.metric('Cash remaining in deal',f"${b['cash_left']:,.0f}")
             st.metric('DSCR',f"{b['dscr']:.2f}")
         with y:
-            st.markdown('### 🔨 Fix & Flip')
+            st.markdown('### 🔨 Fix & Flip · Resale strategy')
             st.metric('Score',f"{f['score']}/100")
             st.write('**'+f['verdict']+'**')
             st.metric('Estimated pre-tax profit',f"${f['profit']:,.0f}")
@@ -230,7 +241,7 @@ with tabs[3]:
             st.metric('Break-even sale price',f"${f['break_even_sale']:,.0f}")
             st.metric('Time to exit',f"{result['shared']['months']} months")
         st.divider()
-        st.subheader('📋 At-a-glance deal assessment')
+        st.subheader('At-a-glance deal assessment')
         verdicts = [
             {'Strategy':'BRRRR', 'Score':f"{b['score']}/100", 'Cash / profit':f"${b['monthly_cashflow']:,.0f} / month", 'Critical checks': 'Cash flow, DSCR and 75% cash recovery', 'Financial target met': 'Yes' if b['passed'] else 'No'},
             {'Strategy':'Fix & Flip', 'Score':f"{f['score']}/100", 'Cash / profit':f"${f['profit']:,.0f} pre-tax profit", 'Critical checks': 'Net profit and project cash ROI', 'Financial target met': 'Yes' if f['passed'] else 'No'},

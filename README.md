@@ -42,3 +42,12 @@ Copy the new `app.py`, `core/comps.py`, `tests/test_comps.py`, and this README i
 For a safer rollout, first create a `v1.1-comps` Git branch and deploy a Streamlit test app from that branch. Confirm the finance calculations, comparable inputs, saving and Excel export before merging into `main`.
 
 This version still relies on manual review for high-quality comp data. It does not automatically source all renovated sales, adjust for condition or proximity, and does not establish lender-eligible ARV.
+
+
+## V1.3 (address-first UI)
+- Single search action beside the address bar pulls RentCast property + value/rent comparable candidates.
+- Search works with supported **US** addresses, not just Cleveland.
+- Candidate comp rows merge without replacing verified edits on the same subject; switch addresses to clear prior-subject rows.
+- Search is button-triggered, caches for 24 hours, and never automatically accepts unverified comps.
+- Refreshed layout and clearer comparable/decision displays.
+- No Supabase database changes required.
