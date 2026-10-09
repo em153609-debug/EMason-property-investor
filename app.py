@@ -58,8 +58,12 @@ label,[data-testid="stWidgetLabel"] {color:#d7e6f0 !important; font-weight:630;}
 .insight {background:#1a3044; border:1px solid #3a5870; border-radius:12px; padding:12px 16px; margin:7px 0; line-height:1.5; color:#e6f2fa;}
 .insight.good {border-left:4px solid #3ed6a7;} .insight.risk {border-left:4px solid #ffb85c;} .insight.verify {border-left:4px solid #8eafe6;}
 @media(max-width:760px) {.block-container {padding-left:.75rem;padding-right:.75rem;padding-top:1rem;} .hero{padding:1.2rem;} .hero-title{font-size:1.55rem;} [data-testid="stTabs"] button[role="tab"]{padding:8px 10px;}}
+/* Wizard navigation, aligned label and progress. */
+[data-testid="stProgress"] > div {border-radius:10px !important;}
+[data-testid="stProgress"] > div > div {background:#0eaaa2 !important;}
+@media(max-width:760px) {[data-testid="stHorizontalBlock"]{row-gap:.55rem;} }
 </style>""", unsafe_allow_html=True)
-st.markdown("<div class='hero'><div class='hero-kicker'>PROPERTY UNDERWRITING · V1.6</div><div class='hero-title'>EMason Property Investor</div><div class='hero-sub'>Analyze, compare and explain BRRRR vs Fix & Flip opportunities.</div></div>", unsafe_allow_html=True)
+st.markdown("<div class='hero'><div class='hero-kicker'>PROPERTY UNDERWRITING · V1.7</div><div class='hero-title'>EMason Property Investor</div><div class='hero-sub'>One guided journey from property discovery to investment decision.</div></div>", unsafe_allow_html=True)
 
 @st.cache_data(ttl=86400,show_spinner=False)
 def rentcast_data(address,key,valuations):
@@ -129,11 +133,33 @@ def render_brief_verdict(deal):
     else:
         st.caption('Evidence marked verified by user; lender terms, comps, permits and repairs still require independent confirmation.')
 
-tabs=st.tabs(['🔎 Research','🛠 Renovation','💰 Assumptions','📈 Investment Decision','💾 Saved Deals'])
-with tabs[0]:
-    st.markdown('<div class="section-eyebrow">01 / Property research</div>',unsafe_allow_html=True)
-    st.subheader('Find the property and its market evidence')
+from core.workflow import STEPS, STEP_HELP, step_index, next_step, previous_step, progress_for_step
+
+if 'workflow_step' not in st.session_state or st.session_state.workflow_step not in STEPS:
+    st.session_state.workflow_step=STEPS[0]
+
+st.caption('WORKFLOW · Choose a step to jump directly to it; your current financial inputs stay in memory.')
+st.selectbox('Current step',STEPS,key='workflow_step',label_visibility='collapsed')
+active_step=step_index(st.session_state.workflow_step)
+st.progress(progress_for_step(active_step))
+st.caption(STEP_HELP[active_step])
+
+def nav_controls(index):
+    st.divider()
+    left,middle,right=st.columns([1,2,1])
+    if index>0:
+        left.button('← Back',key=f'back_{index}',use_container_width=True,
+                    on_click=previous_step,args=(st.session_state,))
+    middle.caption(f'Step {index+1} of {len(STEPS)} · Changes stay in this browser session until saved or exported.')
+    if index<len(STEPS)-1:
+        right.button('Continue →',key=f'next_{index}',type='primary',use_container_width=True,
+                     on_click=next_step,args=(st.session_state,))
+
+if active_step==0:
+    st.markdown('<div class="section-eyebrow">01 / Find a property</div>',unsafe_allow_html=True)
+    st.subheader('Find your property')
     st.caption('Enter a complete US address. One click retrieves available property details, value/rent estimates and nearby comparable candidates. Cleveland is the default focus, not a geographic restriction.')
+    st.info('Start here: enter the address, click Find property & comps, then review the imported sales and rental evidence in Step 2. You can also work manually.')
     addr_col, lookup_col=st.columns([5,2],vertical_alignment='bottom')
     with addr_col:
         d.address=st.text_input('Property address',value=d.address,placeholder='123 Main St, Lakewood, OH 44107',help='Enter any US address supported by RentCast. Include city and state to avoid ambiguous results.')
@@ -240,10 +266,13 @@ with tabs[0]:
     st.divider()
     render_brief_verdict(d)
 
-    st.divider()
-    st.markdown('<div class="section-eyebrow">02 / Comparable screening</div>',unsafe_allow_html=True)
-    st.subheader('Nearby comparable evidence')
-    st.caption('Candidate comps are imported automatically when you click Find property & comps. Select and verify each one before using it for ARV or market rent.')
+    nav_controls(0)
+
+if active_step==1:
+    st.markdown('<div class="section-eyebrow">02 / Validate market evidence</div>',unsafe_allow_html=True)
+    st.subheader('Validate sales and rental comps')
+    st.caption('Candidates from step 1 appear here automatically. Review sale dates, renovation quality, distance and rental similarity before using them for ARV or rent.')
+    st.info('New property? Start at Step 1 and click Find property & comps. Then return here to accept or reject individual candidates.')
     from services.comp_discovery import normalize_avm_candidates
     sale_count=len(st.session_state.get('comp_rows_sale',[]))
     rent_count=len(st.session_state.get('comp_rows_rent',[]))
@@ -303,8 +332,10 @@ with tabs[0]:
                 st.dataframe([{'Address':a,'Reason':reason} for a,reason in comp_result['rejected']],hide_index=True,use_container_width=True)
             st.caption(comp_result['disclaimer'])
     st.warning('Comp analysis is decision support, not an appraisal. Verify property similarity, sales concessions, distance, renovation quality and local rent restrictions before treating figures as reliable.')
-with tabs[1]:
-    st.markdown('<div class="section-eyebrow">03 / Scope & budget</div>',unsafe_allow_html=True)
+    nav_controls(1)
+
+if active_step==2:
+    st.markdown('<div class="section-eyebrow">03 / Plan the renovation</div>',unsafe_allow_html=True)
     st.subheader('Renovation planning')
     st.caption('Enter the actual contractor bids + DIY materials and out-of-pocket labor costs. Detailed line-item planning is supported below.')
     default_items={'Kitchen':12000.,'Bathrooms':8000.,'Flooring':4500.,'Paint':2500.,'Electrical / plumbing':4000.,'Exterior / other':4000.}
@@ -319,8 +350,10 @@ with tabs[1]:
     d.rehab_reserve_extra=st.number_input('Permits / special allowances ($)',0.,100000.,float(d.rehab_reserve_extra),step=500.)
     d.rehab_months=st.number_input('Rehab duration (months)',1,36,int(d.rehab_months))
     d.marketing_months=st.number_input('Rent-up / resale closing time (months)',0,18,int(d.marketing_months))
-with tabs[2]:
-    st.markdown('<div class="section-eyebrow">04 / Underwriting inputs</div>',unsafe_allow_html=True)
+    nav_controls(2)
+
+if active_step==3:
+    st.markdown('<div class="section-eyebrow">04 / Choose financing & costs</div>',unsafe_allow_html=True)
     st.subheader('Financing and operating assumptions')
     with st.expander('Acquisition financing',expanded=True):
         c1,c2,c3=st.columns(3)
@@ -352,9 +385,12 @@ with tabs[2]:
         with c1: d.sale_commission=st.number_input('Sales agent commission (%)',0.,12.,float(d.sale_commission*100),step=.25)/100
         with c2: d.sale_closing=st.number_input('Other sale closing costs (%)',0.,10.,float(d.sale_closing*100),step=.25)/100
         with c3: d.seller_concession=st.number_input('Buyer concessions (%)',0.,10.,float(d.seller_concession*100),step=.25)/100
-with tabs[3]:
-    st.markdown('<div class="section-eyebrow">05 / Investment decision</div>',unsafe_allow_html=True)
+    nav_controls(3)
+
+if active_step==4:
+    st.markdown('<div class="section-eyebrow">05 / Compare investment exits</div>',unsafe_allow_html=True)
     st.subheader('Which exit strategy makes more sense?')
+    st.caption('Your purchase, renovation, rent, and financing assumptions from earlier steps feed both scenarios. Review the evidence warnings before treating either as actionable.')
     st.caption('Investment scores depend on your assumptions; the financial targets and evidence checks below explain the recommendation.')
     try:
         result=analyze(d)
@@ -479,8 +515,10 @@ with tabs[3]:
             st.download_button('Download Excel underwriting report',excel_bytes,file_name='investment-analysis.xlsx',mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         except Exception as e: st.warning(f'Excel export unavailable: {e}')
     except ValueError as e: st.error(str(e))
-with tabs[4]:
-    st.markdown('<div class="section-eyebrow">06 / Your deal library</div>',unsafe_allow_html=True)
+    nav_controls(4)
+
+if active_step==5:
+    st.markdown('<div class="section-eyebrow">06 / Save or export</div>',unsafe_allow_html=True)
     st.subheader('Private saved analyses')
     if not sb_url or not sb_key:
         st.info('Supabase is not configured. JSON/Excel downloads still work. Configure Supabase Secrets and run the included SQL migration to enable saving.')
@@ -512,3 +550,5 @@ with tabs[4]:
                 with st.expander(f"{saved['title']} — {saved['created_at'][:10]}"):
                     st.json(saved['payload'])
             st.warning('V1 saves private per-user snapshots. Shared partner workspaces are planned for a later version; do not share passwords.')
+
+    nav_controls(5)

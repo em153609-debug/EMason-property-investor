@@ -81,3 +81,19 @@ Upload this update ZIP into the existing Codespace, ensure `git status` shows no
 - Investment Decision contains a hypothetical offer slider and separate financial sensitivity charts. Sliding it never changes the deal input or previously saved snapshots.
 - No new Streamlit secrets, database migrations or third-party requests are required for this update.
 - For best usability, reload the browser after the Streamlit redeployment to refresh CSS.
+
+
+## V1.7 — Guided workflow
+
+The previous five-tab interface is replaced by a six-stage guided workflow at the top of the page:
+
+1. Property — address lookup and base assumptions.
+2. Comparable evidence — verify sale/rental comps and filter geographic candidates.
+3. Renovation — line-item rehab and schedule.
+4. Financing & operations — loans, vacancy, holding and selling costs.
+5. Investment decision — explanation cards, what-if offers, scores, stress tests.
+6. Save / export — private Supabase snapshots and JSON/Excel exports.
+
+Navigate with the stage selector or Back / Continue buttons. Sidebar deal thresholds stay available. No database schema changes or credentials required. Importantly, selections and analyzed numbers persist within the same Streamlit session; this is not a substitute for Save / Export.
+
+Deploy: back up your working repo, unzip the V1.7 patch at repository root, run `python -m pytest -q`, then commit `app.py core/workflow.py tests/test_workflow.py README.md` and push to `main`.
