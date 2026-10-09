@@ -97,3 +97,14 @@ The previous five-tab interface is replaced by a six-stage guided workflow at th
 Navigate with the stage selector or Back / Continue buttons. Sidebar deal thresholds stay available. No database schema changes or credentials required. Importantly, selections and analyzed numbers persist within the same Streamlit session; this is not a substitute for Save / Export.
 
 Deploy: back up your working repo, unzip the V1.7 patch at repository root, run `python -m pytest -q`, then commit `app.py core/workflow.py tests/test_workflow.py README.md` and push to `main`.
+
+
+## V1.8 — Safer lookup-to-underwriting
+
+- New address lookup clears prior property-specific asking price, ARV, rent and confidence flags; other rehab/financing preferences are retained.
+- Auto-populates unit type only when confidently identified; auto-populates rent only when supplied by RentCast and labels it unverified.
+- Never uses `lastSalePrice` as current asking price. An asking price is imported only if explicitly provided by the property response.
+- Provider value AVM appears separately; it **never silently becomes renovated ARV**. You may deliberately adopt it as an *unverified* starting assumption.
+- First session starts with empty/zero subject prices, preventing misleading sample deal scores. The investment preview waits for price and ARV.
+- Re-searching the same address keeps your manually edited underwriting fields.
+- No database schema or secrets changes. Tests in `tests/test_property_import.py`.

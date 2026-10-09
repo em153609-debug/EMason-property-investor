@@ -190,6 +190,7 @@ if active_step==0:
                 st.session_state[key]=merge_comp_rows(previous,candidates)
             st.session_state.comp_import_version+=1
             st.session_state.address_last_imported=fetched_addr
+            st.session_state.pop('last_analysis', None)
             st.session_state.lookup={'retrieved_at':datetime.now(timezone.utc).isoformat(),'address':fetched_addr,'data':result}
             st.success(f'Found {len(sales)} sale and {len(rentals)} rental candidates. They are in the comp workbench below, awaiting your review.')
         except Exception as exc:
@@ -393,9 +394,13 @@ if active_step==4:
     st.caption('Your purchase, renovation, rent, and financing assumptions from earlier steps feed both scenarios. Review the evidence warnings before treating either as actionable.')
     st.caption('Investment scores depend on your assumptions; the financial targets and evidence checks below explain the recommendation.')
     try:
+        if d.price<=0 or d.arv<=0:
+            raise ValueError('Please enter both the current offer/listing price and a supported renovated ARV in Step 1 before scoring this property.')
+        if st.session_state.address_last_imported and d.address.strip().casefold()!=st.session_state.address_last_imported.casefold():
+            raise ValueError('The property address changed since your last lookup. Run Find property & comps before scoring this different property.')
         result=analyze(d)
         st.session_state.last_analysis={'inputs':asdict(d),'results':result,'timestamp':datetime.now(timezone.utc).isoformat(),
-                                        'analysis_version':'1.6',
+                                        'analysis_version':'1.8',
                                         'comparable_inputs':{'sales':st.session_state.get('comp_rows_sale',[]),'rentals':st.session_state.get('comp_rows_rent',[])}}
         b,f=result['brrrr'],result['flip']
         def money(value):
@@ -539,7 +544,11 @@ if active_step==5:
                 del st.session_state.auth_token;del st.session_state.auth_uid;st.rerun()
             if st.button('Save current analysis'):
                 try:
-                    payload=st.session_state.get('last_analysis') or {'inputs':asdict(d),'results':analyze(d)}
+                    if d.price<=0 or d.arv<=0:
+                        raise ValueError('Enter a price and projected renovated ARV in Step 1 before saving.')
+                    if st.session_state.address_last_imported and d.address.strip().casefold()!=st.session_state.address_last_imported.casefold():
+                        raise ValueError('Address differs from the last lookup. Re-run property lookup before saving.')
+                    payload={'inputs':asdict(d),'results':analyze(d),'timestamp':datetime.now(timezone.utc).isoformat(),'analysis_version':'1.8','comparable_inputs':{'sales':st.session_state.get('comp_rows_sale',[]),'rentals':st.session_state.get('comp_rows_rent',[])}}
                     save_deal(sb_url,sb_key,st.session_state.auth_token,st.session_state.auth_uid,d.address or 'Untitled property',payload)
                     st.success('Saved to your private deals.')
                 except Exception as exc: st.error(f'Could not save: {exc}')
