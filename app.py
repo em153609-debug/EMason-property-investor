@@ -5,20 +5,35 @@ import streamlit as st
 from core.engine import Deal, analyze, max_offer, sensitivities
 
 st.set_page_config(page_title='EMason Property Investor',page_icon='🏘️',layout='wide', initial_sidebar_state='collapsed')
-st.markdown('''<style>
-.block-container{max-width:1320px;padding-top:1.6rem;padding-bottom:3rem}
-h1,h2,h3{letter-spacing:-.035em} h1{font-weight:800!important}
-[data-testid="stMetric"]{background:#f6f9fc;border:1px solid #e3eaf1;border-radius:15px;padding:15px}
-[data-testid="stMetricLabel"]{font-weight:650}
-[data-testid="stTabs"] button{font-weight:650;padding:14px 17px}
-[data-testid="stSidebar"]{border-right:1px solid #e5e7eb}
-.stButton button[kind="primary"]{border-radius:10px;font-weight:700}
-.section-note{color:#64748b;font-size:.93rem}
-.hero{padding:1.1rem 1.4rem;border:1px solid #dfe8f1;border-radius:18px;background:linear-gradient(105deg,#f4faf8,#f7f9fe);margin-bottom:1.3rem}
-.hero-title{font-size:1.65rem;font-weight:800;color:#10283b;margin-bottom:.2rem}
-.hero-sub{color:#536477;font-size:.94rem}
-</style>''',unsafe_allow_html=True)
-st.markdown('''<div class="hero"><div class="hero-title">🏘️ EMason Property Investor</div><div class="hero-sub">Evaluate BRRRR vs. Fix & Flip · Evidence-driven investment decisions · Version 1.3</div></div>''', unsafe_allow_html=True)
+st.markdown("""<style>
+/* EMason design system: ink / teal / cool slate; resilient to dark mode */
+.stApp { background: #f5f7fb; color: #15263c; }
+.block-container { max-width: 1340px; padding-top: 1.25rem; padding-bottom: 4rem; }
+[data-testid="stHeader"] { background: rgba(245,247,251,.94); }
+h1,h2,h3 { letter-spacing: -.035em; color: #17304a; }
+h2 { padding-top: .3rem; }
+[data-testid="stSidebar"] { background: #eaf1f5; border-right:1px solid #d7e3ea; }
+[data-testid="stMetric"] { background: #ffffff; padding: 1.0rem 1.1rem; border:1px solid #dae5ec; border-radius:14px; box-shadow:0 2px 7px #11283a08; }
+[data-testid="stMetricLabel"] { color:#526477; font-weight:650; }
+[data-testid="stMetricValue"] { color:#132d46; font-weight:780; letter-spacing:-.035em; }
+[data-testid="stTabs"] [role="tablist"] { background:#e7eef4; padding:5px; gap:4px; border-radius:12px; }
+[data-testid="stTabs"] button[role="tab"] { border-radius:9px; padding:12px 15px; font-weight:660; }
+[data-testid="stTabs"] button[aria-selected="true"] { background:#fff; color:#116d75; box-shadow:0 1px 5px #0a2e4521; }
+.stButton button[kind="primary"], .stDownloadButton button[kind="primary"] { background:#087f81; border:0; color:#fff; border-radius:10px; font-weight:750; }
+.stButton button { border-radius:10px; font-weight:620; }
+[data-testid="stVerticalBlockBorderWrapper"] { border-radius:16px; }
+[data-testid="stExpander"] { border:1px solid #dbe5ec; background:#fff; border-radius:12px; }
+.hero { padding: 1.65rem 1.8rem; border-radius:20px; background:linear-gradient(115deg,#132c44,#1d4558 68%,#127979); color:white; margin-bottom:1.5rem; box-shadow:0 9px 25px #163e5220; }
+.hero-kicker { font-weight:750; font-size:.73rem; color:#9de9df; letter-spacing:.14em; }
+.hero-title { font-size:2.0rem; font-weight:850; color:white; letter-spacing:-.045em; margin:.2rem 0; }
+.hero-sub { color:#d5e9ef; font-size:.95rem; }
+.strategy { background:#fff; border:1px solid #dbe7ec; border-radius:17px; padding:1.3rem; margin:.3rem 0; }
+.strategy h3 { margin:0 0 .5rem 0; }
+.strategy-score { font-size:2.6rem; font-weight:850; color:#0e6c76; line-height:1.2; }
+.strategy-meta { font-size:.85rem; color:#526477; }
+.section-eyebrow { color:#14767c; font-size:.8rem; font-weight:800; letter-spacing:.10em; text-transform:uppercase; }
+</style>""", unsafe_allow_html=True)
+st.markdown("<div class='hero'><div class='hero-kicker'>REAL ESTATE INVESTMENT WORKSPACE · V1.4</div><div class='hero-title'>EMason Property Investor</div><div class='hero-sub'>One property. Two strategies. Transparent numbers and comparable evidence.</div></div>", unsafe_allow_html=True)
 
 @st.cache_data(ttl=86400,show_spinner=False)
 def rentcast_data(address,key,valuations):
@@ -44,9 +59,10 @@ with st.sidebar:
     d.flip_min_roi=st.number_input('Flip minimum ROI (%)',min_value=0.0,max_value=100.0,value=float(d.flip_min_roi*100),step=5.0)/100
     st.info('Visitors can analyze anonymously. Saving requires an authenticated Supabase account.')
 
-tabs=st.tabs(['🏠 Property & Comps','🔨 Rehab','💵 Finance & Operating','📊 Deal Verdict','💾 Saved Deals'])
+tabs=st.tabs(['🔎 Research','🛠 Renovation','💰 Assumptions','📈 Investment Decision','💾 Saved Deals'])
 with tabs[0]:
-    st.subheader('Find & evaluate a property')
+    st.markdown('<div class="section-eyebrow">01 / Property research</div>',unsafe_allow_html=True)
+    st.subheader('Find the property and its market evidence')
     st.caption('Enter a complete US address. One click retrieves available property details, value/rent estimates and nearby comparable candidates. Cleveland is the default focus, not a geographic restriction.')
     addr_col, lookup_col=st.columns([5,2],vertical_alignment='bottom')
     with addr_col:
@@ -66,8 +82,12 @@ with tabs[0]:
             old_addr=st.session_state.address_last_imported
             # When switching to a different address, do not silently attach the previous property's comps.
             replace_subject=bool(old_addr and old_addr.casefold()!=fetched_addr.casefold())
-            sales=normalize_avm_candidates(result.get('value',{}),'sale',fetched_addr)
-            rentals=normalize_avm_candidates(result.get('rent',{}),'rent',fetched_addr)
+            from services.geo import coords, attach_distances
+            property_record=(result.get('property') or [{}])[0]
+            subject_coordinates=coords(property_record)
+            st.session_state.subject_coordinates=subject_coordinates
+            sales=attach_distances(normalize_avm_candidates(result.get('value',{}),'sale',fetched_addr),subject_coordinates)
+            rentals=attach_distances(normalize_avm_candidates(result.get('rent',{}),'rent',fetched_addr),subject_coordinates)
             for comp_type, candidates in [('sale',sales),('rent',rentals)]:
                 key='comp_rows_'+comp_type
                 previous=[] if replace_subject else st.session_state.get(key,[])
@@ -119,6 +139,7 @@ with tabs[0]:
     st.caption('For multifamily enter total property value and total projected monthly rent. Verify zoning and legal unit count independently.')
 
     st.divider()
+    st.markdown('<div class="section-eyebrow">02 / Comparable screening</div>',unsafe_allow_html=True)
     st.subheader('Nearby comparable evidence')
     st.caption('Candidate comps are imported automatically when you click Find property & comps. Select and verify each one before using it for ARV or market rent.')
     from services.comp_discovery import normalize_avm_candidates
@@ -133,6 +154,16 @@ with tabs[0]:
                                    help='Enter from assessor or listing and verify. Required for sale $/sqft adjustment.')
     subject_beds = st.number_input('Subject bedrooms', min_value=0, max_value=20, value=3, step=1)
     st.info('For 2–4 units, use whole-building sales and comparable whole-building square footage for ARV. Rental comps should represent comparable whole properties, or total the unit-level rents yourself. Do not mix per-unit and whole-property amounts.')
+    with st.container(border=True):
+        st.markdown('**Comparable screening preferences**')
+        filter_a,filter_b,filter_c=st.columns([1,1,1.35])
+        with filter_a:
+            radius=st.selectbox('Search radius',options=[0.5,1.0,2.0,3.0,5.0,10.0],index=2,format_func=lambda x:f'{x:g} miles',help='Filters imported candidates when coordinates or analyst-entered distance are known. Does not change the provider API search radius.')
+        with filter_b:
+            age_window=st.selectbox('Maximum comp age',options=[3,6,9,12,18,24],index=1,format_func=lambda x:f'{x} months',help='Uses the row date; provider dates may represent listing activity rather than verified sale dates.')
+        with filter_c:
+            unknown_distance=st.checkbox('Exclude unknown-distance comps',value=False,help='When checked, comps without verifiable distance cannot be included in the indicated value/rent.')
+        st.caption('The radius/date controls filter the retrieved candidate pool; they do not ask RentCast to perform a new geographic search. Date fields from automatic imports describe listing activity, not guaranteed closing dates.')
     for comp_type, label in [('sale','Renovated sale comps'), ('rent','Comparable rental listings / leases')]:
         with st.expander(label, expanded=False):
             st.write('Add or edit rows. Mark **renovated** only after you review condition/photos for sale comps. Enter ISO dates such as 2026-08-15. Only checked rows count.')
@@ -148,9 +179,12 @@ with tabs[0]:
                                     'sqft':st.column_config.NumberColumn('Sq ft',min_value=0.0),
                                     'bedrooms':st.column_config.NumberColumn('Beds',min_value=0),
                                     'date':st.column_config.TextColumn('Close/list date YYYY-MM-DD'),
-                                    'renovated':st.column_config.CheckboxColumn('Renovated confirmed')})
+                                    'renovated':st.column_config.CheckboxColumn('Renovated confirmed'),
+                                    'distance_miles':st.column_config.NumberColumn('Miles away',min_value=0.0,format='%.2f'),
+                                    'source':st.column_config.TextColumn('Source'),
+                                    'date_type':st.column_config.TextColumn('Date meaning')})
             st.session_state[key]=changed
-            comp_result=evaluate_comps(changed,comp_type,subject_sqft or None,subject_beds)
+            comp_result=evaluate_comps(changed,comp_type,subject_sqft or None,subject_beds,max_age_months=age_window,max_radius_miles=radius,require_known_distance=unknown_distance)
             st.write(f"**Evidence:** {comp_result['count']} eligible comps ({comp_result['recent_count']} within 6 months) — {comp_result['confidence']}")
             if comp_result['estimate'] is not None:
                 st.metric('Comp-derived '+('ARV indication' if comp_type=='sale' else 'rent indication'),f"${comp_result['estimate']:,.0f}")
@@ -168,7 +202,8 @@ with tabs[0]:
             st.caption(comp_result['disclaimer'])
     st.warning('Comp analysis is decision support, not an appraisal. Verify property similarity, sales concessions, distance, renovation quality and local rent restrictions before treating figures as reliable.')
 with tabs[1]:
-    st.subheader('2 · Rehab planning')
+    st.markdown('<div class="section-eyebrow">03 / Scope & budget</div>',unsafe_allow_html=True)
+    st.subheader('Renovation planning')
     st.caption('Enter the actual contractor bids + DIY materials and out-of-pocket labor costs. Detailed line-item planning is supported below.')
     default_items={'Kitchen':12000.,'Bathrooms':8000.,'Flooring':4500.,'Paint':2500.,'Electrical / plumbing':4000.,'Exterior / other':4000.}
     if 'rehab_items' not in st.session_state: st.session_state.rehab_items=default_items.copy()
@@ -183,7 +218,8 @@ with tabs[1]:
     d.rehab_months=st.number_input('Rehab duration (months)',1,36,int(d.rehab_months))
     d.marketing_months=st.number_input('Rent-up / resale closing time (months)',0,18,int(d.marketing_months))
 with tabs[2]:
-    st.subheader('3 · Purchase, operations and refinance')
+    st.markdown('<div class="section-eyebrow">04 / Underwriting inputs</div>',unsafe_allow_html=True)
+    st.subheader('Financing and operating assumptions')
     with st.expander('Acquisition financing',expanded=True):
         c1,c2,c3=st.columns(3)
         with c1: d.acquisition_down=st.number_input('Purchase down payment (%)',0,100,int(d.acquisition_down*100))/100
@@ -215,33 +251,44 @@ with tabs[2]:
         with c2: d.sale_closing=st.number_input('Other sale closing costs (%)',0.,10.,float(d.sale_closing*100),step=.25)/100
         with c3: d.seller_concession=st.number_input('Buyer concessions (%)',0.,10.,float(d.seller_concession*100),step=.25)/100
 with tabs[3]:
-    st.subheader('BRRRR or Flip — which works better?')
+    st.markdown('<div class="section-eyebrow">05 / Investment decision</div>',unsafe_allow_html=True)
+    st.subheader('Which exit strategy makes more sense?')
     st.caption('Investment scores depend on your assumptions; the financial targets and evidence checks below explain the recommendation.')
     try:
         result=analyze(d)
         st.session_state.last_analysis={'inputs':asdict(d),'results':result,'timestamp':datetime.now(timezone.utc).isoformat(),
-                                        'analysis_version':'1.3',
+                                        'analysis_version':'1.4',
                                         'comparable_inputs':{'sales':st.session_state.get('comp_rows_sale',[]),'rentals':st.session_state.get('comp_rows_rent',[])}}
         b,f=result['brrrr'],result['flip']
-        x,y=st.columns(2)
+        def money(value):
+            return f'${value:,.0f}'
+        x,y=st.columns(2, gap='large')
         with x:
-            st.markdown('### 🏠 BRRRR · Rental strategy')
-            st.metric('Score',f"{b['score']}/100")
-            st.write('**'+b['verdict']+'**')
-            st.metric('Monthly cash flow',f"${b['monthly_cashflow']:,.0f}")
-            st.metric('Capital recovered',f"{b['recovery']:.0%}")
-            st.metric('Cash remaining in deal',f"${b['cash_left']:,.0f}")
-            st.metric('DSCR',f"{b['dscr']:.2f}")
+            with st.container(border=True):
+                st.markdown('### 🏘️ BRRRR · Hold & refinance')
+                st.metric('Feasibility score',f"{b['score']}/100")
+                st.caption('Financial screening: '+b['verdict'])
+                m1,m2=st.columns(2)
+                m1.metric('Monthly cash flow',money(b['monthly_cashflow']))
+                m2.metric('Capital returned',f"{b['recovery']:.0%}")
+                m3,m4=st.columns(2)
+                m3.metric('Cash left invested',money(b['cash_left']))
+                m4.metric('DSCR',f"{b['dscr']:.2f}")
+                st.progress(min(100,max(0,int(b['score'])))/100,text=f"BRRRR score · {b['score']} out of 100")
         with y:
-            st.markdown('### 🔨 Fix & Flip · Resale strategy')
-            st.metric('Score',f"{f['score']}/100")
-            st.write('**'+f['verdict']+'**')
-            st.metric('Estimated pre-tax profit',f"${f['profit']:,.0f}")
-            st.metric('Project cash ROI',f"{f['roi']:.1%}")
-            st.metric('Break-even sale price',f"${f['break_even_sale']:,.0f}")
-            st.metric('Time to exit',f"{result['shared']['months']} months")
+            with st.container(border=True):
+                st.markdown('### 🛠️ Fix & Flip · Renovate & sell')
+                st.metric('Feasibility score',f"{f['score']}/100")
+                st.caption('Financial screening: '+f['verdict'])
+                m1,m2=st.columns(2)
+                m1.metric('Pre-tax profit',money(f['profit']))
+                m2.metric('Project cash ROI',f"{f['roi']:.1%}")
+                m3,m4=st.columns(2)
+                m3.metric('Break-even sale',money(f['break_even_sale']))
+                m4.metric('Estimated exit',f"{result['shared']['months']} months")
+                st.progress(min(100,max(0,int(f['score'])))/100,text=f"Flip score · {f['score']} out of 100")
         st.divider()
-        st.subheader('At-a-glance deal assessment')
+        st.subheader('Side-by-side qualification')
         verdicts = [
             {'Strategy':'BRRRR', 'Score':f"{b['score']}/100", 'Cash / profit':f"${b['monthly_cashflow']:,.0f} / month", 'Critical checks': 'Cash flow, DSCR and 75% cash recovery', 'Financial target met': 'Yes' if b['passed'] else 'No'},
             {'Strategy':'Fix & Flip', 'Score':f"{f['score']}/100", 'Cash / profit':f"${f['profit']:,.0f} pre-tax profit", 'Critical checks': 'Net profit and project cash ROI', 'Financial target met': 'Yes' if f['passed'] else 'No'},
@@ -262,6 +309,8 @@ with tabs[3]:
         q1.metric('BRRRR maximum offer',f'${max_b:,.0f}' if max_b is not None else 'No feasible price in range')
         q2.metric('Flip maximum offer',f'${max_f:,.0f}' if max_f is not None else 'No feasible price in range')
         st.caption('Calculated by testing prices against the hard financial targets; not a seller acceptance prediction.')
+        st.markdown('### Why each strategy scored this way')
+        st.caption('Open any category to see actual results, thresholds, and actions that could improve confidence or economics.')
         for heading,section in [('BRRRR score explained',b),('Fix & Flip score explained',f)]:
             st.markdown('### '+heading)
             for i,item in enumerate(section['items']):
@@ -294,7 +343,8 @@ with tabs[3]:
         except Exception as e: st.warning(f'Excel export unavailable: {e}')
     except ValueError as e: st.error(str(e))
 with tabs[4]:
-    st.subheader('5 · Private saved analyses')
+    st.markdown('<div class="section-eyebrow">06 / Your deal library</div>',unsafe_allow_html=True)
+    st.subheader('Private saved analyses')
     if not sb_url or not sb_key:
         st.info('Supabase is not configured. JSON/Excel downloads still work. Configure Supabase Secrets and run the included SQL migration to enable saving.')
     else:

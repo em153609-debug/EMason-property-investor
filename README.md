@@ -51,3 +51,15 @@ This version still relies on manual review for high-quality comp data. It does n
 - Search is button-triggered, caches for 24 hours, and never automatically accepts unverified comps.
 - Refreshed layout and clearer comparable/decision displays.
 - No Supabase database changes required.
+
+
+## V1.4 — Visual refresh and comparable screening controls
+- Modern slate/navy/teal theme, prominent strategy scorecards, cleaner tab labels and spacing, progress indicators, and simplified decision hierarchy.
+- Search remains address-first; supports RentCast-covered U.S. addresses, not Cleveland-only.
+- Choose 0.5–10 mile radius and 3–24 month age windows in comparable workbench. These are LOCAL screening controls on candidates RentCast returned, NOT API geographic search parameters.
+- Distance derives from source coordinates if both the subject and comp have them; otherwise remains unknown. Toggle strict filtering to exclude unknown-distance candidates. Analyst-entered mileage may also be reviewed.
+- Imported listing activity date is NOT a verified sold closing date. Renovation verification and comp inclusion remain explicit.
+- No Supabase migration, API key rotation, or database clearing. Saved deal schema unchanged.
+
+### Update procedure
+Upload this update ZIP into the existing Codespace, ensure `git status` shows no uncommitted tracked changes, then unzip into the project root. Run `python -m pytest -q`. Commit only the updated source files from the release ZIP. Do not commit the ZIP, API credentials or `.streamlit/secrets.toml`.

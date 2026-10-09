@@ -23,7 +23,7 @@ def _months_since(value, as_of=None):
         return None
 
 
-def evaluate_comps(records, kind, subject_sqft=None, subject_beds=None, as_of=None):
+def evaluate_comps(records, kind, subject_sqft=None, subject_beds=None, as_of=None, max_age_months=12, max_radius_miles=None, require_known_distance=False):
     """Use only explicitly included, valid comps; return suggested range + auditable exclusions.
 
     Rows: address, amount, sqft, bedrooms, date, renovated, include. Sale comps
@@ -48,9 +48,21 @@ def evaluate_comps(records, kind, subject_sqft=None, subject_beds=None, as_of=No
         if months is None:
             rejected.append((address, 'Missing valid sale/listing date'))
             continue
-        if months > 12:
-            rejected.append((address, 'Older than 12 months'))
+        if months > max_age_months:
+            rejected.append((address, f'Older than {max_age_months} months'))
             continue
+        distance = row.get('distance_miles')
+        if max_radius_miles is not None:
+            try:
+                distance = float(distance) if distance is not None and str(distance).strip() else None
+            except (ValueError, TypeError):
+                distance = None
+            if distance is None and require_known_distance:
+                rejected.append((address, 'Distance unknown — cannot verify radius'))
+                continue
+            if distance is not None and distance > max_radius_miles:
+                rejected.append((address, f'Beyond {max_radius_miles:g}-mile search radius'))
+                continue
         if subject_sqft and sqft and not (.70 <= sqft / subject_sqft <= 1.30):
             rejected.append((address, 'Size outside 70–130% subject range'))
             continue
@@ -66,7 +78,7 @@ def evaluate_comps(records, kind, subject_sqft=None, subject_beds=None, as_of=No
             rejected.append((address, 'Square footage required for renovated ARV adjustment'))
             continue
         adjusted = amount * subject_sqft / sqft if kind == 'sale' else amount
-        selected.append(dict(address=address, amount=amount, adjusted=adjusted, age_months=round(months,1), sqft=sqft))
+        selected.append(dict(address=address, amount=amount, adjusted=adjusted, age_months=round(months,1), sqft=sqft, distance_miles=distance))
     values = sorted(c['adjusted'] for c in selected)
     n = len(values)
     if n:
@@ -83,4 +95,4 @@ def evaluate_comps(records, kind, subject_sqft=None, subject_beds=None, as_of=No
         confidence = 'Insufficient evidence'
     return dict(**result, count=n, recent_count=recent, confidence=confidence,
                 selected=selected, rejected=rejected,
-                disclaimer='Not an appraisal. No distance, lot, basement, bathroom, condition-quality or sale-concession adjustments are automated.')
+                disclaimer='Not an appraisal. Radius is enforced only on measured coordinates or analyst-entered distance. No lot, basement, bathroom, condition-quality or concession adjustments are automated.')

@@ -47,6 +47,9 @@ def normalize_avm_candidates(response, kind, subject_address='', max_rows=25):
             'renovated': False,
             'source': 'RentCast AVM candidate',
             'status': str(record.get('status') or 'Unknown'),
+            'latitude': record.get('latitude'),
+            'longitude': record.get('longitude'),
+            'date_type': 'listing activity — not confirmed closing',
         }
         seen.add(addr.casefold())
         result.append(row)
