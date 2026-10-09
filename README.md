@@ -24,3 +24,21 @@ Public, mobile-friendly Streamlit underwriting for Cleveland-area single-family 
 
 ## Release safety
 Use feature branches + pull requests. Before schema changes export database content and review migration. Keep historical JSON exports for critical deals.
+
+
+## Version 1.1 — Comparable evidence workbench
+
+- Adds manually reviewed renovated sold comps and rent comps directly inside **Property & Comps**.
+- Records amounts, square footage, bedroom count, date, condition verification and inclusion choice.
+- Excludes unsuitable comps and explains exclusions; reports count and conservative confidence.
+- Uses simple square-foot adjustment for verified renovated sold comps, median advertised rent for rentals. These are indications, not appraisals or confirmed achievable rent.
+- Adds prominent verification warnings to the Deal Verdict and stores entered comp rows within JSON/Supabase analysis snapshots.
+- Does **not** change financial calculation thresholds or existing Supabase database schema.
+
+### Upgrade from 1.0
+
+Copy the new `app.py`, `core/comps.py`, `tests/test_comps.py`, and this README into your existing GitHub repository, preserving directories. Commit to `main`; Streamlit automatically redeploys. **Do not** delete your Supabase project or rerun migrations unnecessarily. API secrets remain in Streamlit, not this repository.
+
+For a safer rollout, first create a `v1.1-comps` Git branch and deploy a Streamlit test app from that branch. Confirm the finance calculations, comparable inputs, saving and Excel export before merging into `main`.
+
+This version still relies on manual review for high-quality comp data. It does not automatically source all renovated sales, adjust for condition or proximity, and does not establish lender-eligible ARV.

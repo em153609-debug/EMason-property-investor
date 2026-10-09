@@ -6,7 +6,7 @@ from core.engine import Deal, analyze, max_offer, sensitivities
 
 st.set_page_config(page_title='EMason Property Investor',page_icon='🏠',layout='wide')
 st.title('🏠 EMason Property Investor')
-st.caption('Cleveland-area BRRRR + Fix & Flip | v1.0 • Preliminary underwriting; not an appraisal or loan approval')
+st.caption('Cleveland-area BRRRR + Fix & Flip | v1.1 • Preliminary underwriting; not an appraisal or loan approval')
 
 @st.cache_data(ttl=86400,show_spinner=False)
 def rentcast_data(address,key,valuations):
@@ -23,12 +23,11 @@ sb_key=secrets.get('SUPABASE_PUBLISHABLE_KEY','')
 
 with st.sidebar:
     st.header('Deal Settings')
-    d.minimum_cashflow = st.number_input("Minimum monthly cash flow ($)", min_value=0.0, max_value=5000.0, value=float(d.minimum_cashflow), step=25.0)
-    d.minimum_recovery = st.number_input("BRRRR cash recovery target (%)", min_value=0.0, max_value=100.0, value=float(d.minimum_recovery * 100), step=5.0) / 100
-    d.minimum_dscr = st.number_input("Minimum DSCR", min_value=0.5, max_value=3.0, value=float(d.minimum_dscr), step=0.05)
-    d.flip_min_profit = st.number_input("Flip minimum profit ($)", min_value=0.0, max_value=250000.0, value=float(d.flip_min_profit), step=1000.0)
-    d.flip_min_roi = st.number_input("Flip minimum ROI (%)", min_value=0.0, max_value=100.0, value=float(d.flip_min_roi * 100), step=5.0) / 100
-
+    d.minimum_cashflow=st.number_input('Minimum monthly cash flow ($)',min_value=0.0,max_value=5000.0,value=float(d.minimum_cashflow),step=25.0)
+    d.minimum_recovery=st.number_input('BRRRR cash recovery target (%)',min_value=0.0,max_value=100.0,value=float(d.minimum_recovery*100),step=5.0)/100
+    d.minimum_dscr=st.number_input('Minimum DSCR',0.5,3.0,float(d.minimum_dscr),step=.05)
+    d.flip_min_profit=st.number_input('Flip minimum profit ($)',min_value=0.0,max_value=250000.0,value=float(d.flip_min_profit),step=1000.0)
+    d.flip_min_roi=st.number_input('Flip minimum ROI (%)',min_value=0.0,max_value=100.0,value=float(d.flip_min_roi*100),step=5.0)/100
     st.info('Visitors can analyze anonymously. Saving requires an authenticated Supabase account.')
 
 tabs=st.tabs(['🏠 Property & Comps','🔨 Rehab','💵 Finance & Operating','📊 Deal Verdict','💾 Saved Deals'])
@@ -81,6 +80,49 @@ with tabs[0]:
     with a: d.arv_confidence=st.selectbox('ARV evidence',['Unverified','Verified comps'],index=['Unverified','Verified comps'].index(d.arv_confidence),help='Choose Verified comps only after you review recent comparable sold renovated properties.')
     with b: d.rent_confidence=st.selectbox('Rent evidence',['Unverified','Verified comps'],index=['Unverified','Verified comps'].index(d.rent_confidence))
     st.caption('For multifamily enter total property value and total projected monthly rent. Verify zoning and legal unit count independently.')
+
+    st.divider()
+    st.subheader('Comparable evidence workbench (V1.1)')
+    st.caption('Enter sold renovated properties and comparable rentals. You can copy candidates from the RentCast results above. This tool never silently declares an AVM a verified ARV.')
+    from core.comps import evaluate_comps
+    subject_sqft = st.number_input('Subject finished above-grade square footage', min_value=0, value=0, step=50,
+                                   help='Enter from assessor or listing and verify. Required for sale $/sqft adjustment.')
+    subject_beds = st.number_input('Subject bedrooms', min_value=0, max_value=20, value=3, step=1)
+    st.info('For 2–4 units, use whole-building sales and comparable whole-building square footage for ARV. Rental comps should represent comparable whole properties, or total the unit-level rents yourself. Do not mix per-unit and whole-property amounts.')
+    for comp_type, label in [('sale','Renovated sale comps'), ('rent','Comparable rental listings / leases')]:
+        with st.expander(label, expanded=False):
+            st.write('Add or edit rows. Mark **renovated** only after you review condition/photos for sale comps. Enter ISO dates such as 2026-08-15. Only checked rows count.')
+            key='comp_rows_'+comp_type
+            if key not in st.session_state:
+                st.session_state[key]=[{'include':True,'address':'','amount':0.0,'sqft':0.0,'bedrooms':3,'date':'','renovated':False}]
+            changed=st.data_editor(st.session_state[key],num_rows='dynamic',use_container_width=True,
+                                  key='editor_'+comp_type,
+                                  column_config={
+                                    'include':st.column_config.CheckboxColumn('Use'),
+                                    'address':st.column_config.TextColumn('Comp address'),
+                                    'amount':st.column_config.NumberColumn('Sold price ($)' if comp_type=='sale' else 'Monthly rent ($)',min_value=0.0,format='$%.0f'),
+                                    'sqft':st.column_config.NumberColumn('Sq ft',min_value=0.0),
+                                    'bedrooms':st.column_config.NumberColumn('Beds',min_value=0),
+                                    'date':st.column_config.TextColumn('Close/list date YYYY-MM-DD'),
+                                    'renovated':st.column_config.CheckboxColumn('Renovated confirmed')})
+            st.session_state[key]=changed
+            comp_result=evaluate_comps(changed,comp_type,subject_sqft or None,subject_beds)
+            st.write(f"**Evidence:** {comp_result['count']} eligible comps ({comp_result['recent_count']} within 6 months) — {comp_result['confidence']}")
+            if comp_result['estimate'] is not None:
+                st.metric('Comp-derived '+('ARV indication' if comp_type=='sale' else 'rent indication'),f"${comp_result['estimate']:,.0f}")
+                st.caption(f"Observed eligible range: ${comp_result['low']:,.0f}–${comp_result['high']:,.0f}. Sale indication uses simple $/sqft scaling, not full appraisal adjustments.")
+                if st.button('Apply comp indication to '+('ARV' if comp_type=='sale' else 'monthly rent'),key='apply_comp_'+comp_type):
+                    if comp_type=='sale':
+                        d.arv=float(comp_result['estimate'])
+                        st.info('ARV assumption updated in memory. Review the ARV evidence selector separately; this is not automatically verified.')
+                    else:
+                        d.rent=float(comp_result['estimate'])
+                        st.info('Rental assumption updated in memory. Review the rent evidence selector separately.')
+            if comp_result['rejected']:
+                st.write('**Excluded comps and reasons**')
+                st.dataframe([{'Address':a,'Reason':reason} for a,reason in comp_result['rejected']],hide_index=True,use_container_width=True)
+            st.caption(comp_result['disclaimer'])
+    st.warning('Comp analysis is decision support, not an appraisal. Verify property similarity, sales concessions, distance, renovation quality and local rent restrictions before treating figures as reliable.')
 with tabs[1]:
     st.subheader('2 · Rehab planning')
     st.caption('Enter the actual contractor bids + DIY materials and out-of-pocket labor costs. Detailed line-item planning is supported below.')
@@ -132,7 +174,9 @@ with tabs[3]:
     st.subheader('4 · Investment decision')
     try:
         result=analyze(d)
-        st.session_state.last_analysis={'inputs':asdict(d),'results':result,'timestamp':datetime.now(timezone.utc).isoformat()}
+        st.session_state.last_analysis={'inputs':asdict(d),'results':result,'timestamp':datetime.now(timezone.utc).isoformat(),
+                                        'analysis_version':'1.1',
+                                        'comparable_inputs':{'sales':st.session_state.get('comp_rows_sale',[]),'rentals':st.session_state.get('comp_rows_rent',[])}}
         b,f=result['brrrr'],result['flip']
         x,y=st.columns(2)
         with x:
@@ -170,6 +214,16 @@ with tabs[3]:
                     st.write(item['why'])
                     st.write('**How to improve / verify:** '+item['action'])
                     st.write('**Observed:**',round(item['value'],3),'| **Target:**',round(item['threshold'],3))
+        st.subheader('Evidence and execution gates')
+        missing=[]
+        if d.arv_confidence!='Verified comps': missing.append('ARV: review recent, similar renovated sold properties before relying on flip profit or refinancing.')
+        if d.rent_confidence!='Verified comps': missing.append('Rent: verify rental comps before relying on cash flow and DSCR.')
+        if d.contingency < .15: missing.append('Rehab contingency is below the suggested 15% starting allowance.')
+        if missing:
+            for issue in missing: st.warning(issue)
+            st.caption('Passing financial thresholds with unverified evidence is conditional, not a purchase recommendation.')
+        else:
+            st.success('Evidence checkboxes were marked verified by the analyst. Validate their underlying source records independently.')
         st.subheader('Stress test')
         stress=[]
         for label,s in sensitivities(d).items():
