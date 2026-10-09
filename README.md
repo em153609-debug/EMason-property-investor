@@ -72,3 +72,12 @@ Upload this update ZIP into the existing Codespace, ensure `git status` shows no
 - Sale results are reported past sale records but not proof of renovated condition; rental data is asking rent not executed leases. Both import unselected. Confirm individual comps before use.
 - No changes to Supabase schema, stored deal ownership, keys or Secrets.
 - A live API and Streamlit-hosted smoke test must be completed after deployment.
+
+
+## V1.6: Light inputs + quick verdict + offer sensitivity
+
+- The dark navy shell remains; input, dropdown, text and number fields are now light blue-gray with dark text.
+- Research shows a *preliminary* BRRRR and Fix & Flip financial result after the primary property assumptions and evidence selectors. The report remains in the Investment Decision tab.
+- Investment Decision contains a hypothetical offer slider and separate financial sensitivity charts. Sliding it never changes the deal input or previously saved snapshots.
+- No new Streamlit secrets, database migrations or third-party requests are required for this update.
+- For best usability, reload the browser after the Streamlit redeployment to refresh CSS.

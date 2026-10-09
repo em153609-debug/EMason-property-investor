@@ -6,7 +6,7 @@ from core.engine import Deal, analyze, max_offer, sensitivities
 
 st.set_page_config(page_title='EMason Property Investor',page_icon='🏘️',layout='wide', initial_sidebar_state='collapsed')
 st.markdown("""<style>
-/* V1.5 dark professional theme with contrasting input surfaces */
+/* V1.6 dark shell + light readable input surfaces */
 :root {color-scheme: dark;}
 .stApp, [data-testid="stAppViewContainer"] { background:#101b2a !important; color:#e8f0f8 !important; }
 .block-container { max-width:1360px; padding-top:1.25rem; padding-bottom:4rem; }
@@ -23,12 +23,29 @@ h1,h2,h3,h4,p,li,[data-testid="stMarkdownContainer"] {color:#e8f0f8;}
 [data-testid="stTabs"] button[aria-selected="true"] {background:#264759; color:#73e6d1;}
 [data-testid="stExpander"], [data-testid="stVerticalBlockBorderWrapper"] {background:#17293b; border:1px solid #365267; border-radius:13px;}
 /* Consistently visible fields, including select, numeric, text, dates and data editor */
-[data-baseweb="input"] > div, [data-baseweb="select"] > div, [data-baseweb="textarea"] > div,
-[data-testid="stNumberInput"] input, [data-testid="stTextInput"] input,
-[data-testid="stTextArea"] textarea {background:#27415a !important; color:#ffffff !important; border-color:#52758d !important; border-radius:9px;}
-[data-baseweb="input"] input, [data-baseweb="select"] input, [data-baseweb="select"] [role="combobox"] {color:#ffffff !important;}
-[data-baseweb="input"] input::placeholder, textarea::placeholder {color:#acc2d2 !important; opacity:1;}
-[data-baseweb="popover"], [role="listbox"], [data-baseweb="menu"] {background:#243c53 !important; color:#fff !important;}
+/* Lighter input fields, high-contrast dark input text, and clearly outlined edges. */
+[data-testid="stTextInput"] [data-baseweb="input"],
+[data-testid="stNumberInput"] [data-baseweb="input"],
+[data-testid="stTextArea"] [data-baseweb="textarea"],
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div,
+[data-baseweb="input"] > div,
+[data-baseweb="textarea"] > div {background:#DCEAF3 !important; border:1px solid #91AFC3 !important; border-radius:10px !important;}
+[data-testid="stTextInput"] input, [data-testid="stNumberInput"] input,
+[data-testid="stTextArea"] textarea, [data-baseweb="select"] [role="combobox"],
+[data-baseweb="input"] input {background:#DCEAF3 !important; color:#142A3A !important; caret-color:#142A3A !important; font-weight:650;}
+[data-baseweb="input"] input::placeholder, textarea::placeholder {color:#5A7183 !important; opacity:1;}
+[data-testid="stSelectbox"] [data-baseweb="select"] *, [data-testid="stMultiSelect"] [data-baseweb="select"] * {color:#142A3A !important;}
+[data-testid="stNumberInput"] button {background:#C3D9E8 !important; border-color:#91AFC3 !important; color:#142A3A !important;}
+[data-testid="stNumberInput"] button svg {fill:#142A3A !important; color:#142A3A !important;}
+[data-testid="stTextInput"] [data-baseweb="input"]:focus-within,
+[data-testid="stNumberInput"] [data-baseweb="input"]:focus-within,
+[data-testid="stSelectbox"] [data-baseweb="select"]:focus-within {outline:2px solid #43D0C0 !important; outline-offset:1px;}
+/* Dropdown menus can remain dark; their options must have readable light text. */
+[data-baseweb="popover"], [role="listbox"], [data-baseweb="menu"] {background:#243C53 !important; color:#F7FBFF !important;}
+[data-baseweb="popover"] [role="option"], [role="listbox"] [role="option"] {color:#F7FBFF !important;}
+[data-baseweb="popover"] [aria-selected="true"] {background:#315D70 !important;}
+/* Explicitly avoid changing the text color of data-grid cells or metric cards. */
 [data-testid="stDataFrame"], [data-testid="stDataEditor"] {border:1px solid #365267; border-radius:10px;}
 label,[data-testid="stWidgetLabel"] {color:#d7e6f0 !important; font-weight:630;}
 .stButton button[kind="primary"], .stDownloadButton button[kind="primary"] {background:#0eaaa2 !important; color:#071b22 !important; border:0; font-weight:800; border-radius:10px;}
@@ -42,7 +59,7 @@ label,[data-testid="stWidgetLabel"] {color:#d7e6f0 !important; font-weight:630;}
 .insight.good {border-left:4px solid #3ed6a7;} .insight.risk {border-left:4px solid #ffb85c;} .insight.verify {border-left:4px solid #8eafe6;}
 @media(max-width:760px) {.block-container {padding-left:.75rem;padding-right:.75rem;padding-top:1rem;} .hero{padding:1.2rem;} .hero-title{font-size:1.55rem;} [data-testid="stTabs"] button[role="tab"]{padding:8px 10px;}}
 </style>""", unsafe_allow_html=True)
-st.markdown("<div class='hero'><div class='hero-kicker'>PROPERTY UNDERWRITING · V1.5</div><div class='hero-title'>EMason Property Investor</div><div class='hero-sub'>Analyze, compare and explain BRRRR vs Fix & Flip opportunities.</div></div>", unsafe_allow_html=True)
+st.markdown("<div class='hero'><div class='hero-kicker'>PROPERTY UNDERWRITING · V1.6</div><div class='hero-title'>EMason Property Investor</div><div class='hero-sub'>Analyze, compare and explain BRRRR vs Fix & Flip opportunities.</div></div>", unsafe_allow_html=True)
 
 @st.cache_data(ttl=86400,show_spinner=False)
 def rentcast_data(address,key,valuations):
@@ -72,6 +89,45 @@ with st.sidebar:
     d.flip_min_profit=st.number_input('Flip minimum profit ($)',min_value=0.0,max_value=250000.0,value=float(d.flip_min_profit),step=1000.0)
     d.flip_min_roi=st.number_input('Flip minimum ROI (%)',min_value=0.0,max_value=100.0,value=float(d.flip_min_roi*100),step=5.0)/100
     st.info('Visitors can analyze anonymously. Saving requires an authenticated Supabase account.')
+
+from core.offer_sensitivity import offer_curve, offer_range
+
+def render_brief_verdict(deal):
+    """Compact, preliminary verdict using current editable assumptions."""
+    try:
+        summary=analyze(deal)
+    except ValueError:
+        st.info('Enter a positive purchase price and ARV to preview the investment strategies.')
+        return
+    b=summary['brrrr']; f=summary['flip']
+    st.markdown('<div class="section-eyebrow">Live decision preview</div>',unsafe_allow_html=True)
+    c1,c2=st.columns(2,gap='medium')
+    with c1:
+        with st.container(border=True):
+            st.markdown('**🏘️ BRRRR / Buy & Hold**')
+            a,b2=st.columns(2)
+            a.metric('Score',f"{b['score']}/100")
+            b2.metric('Cash flow / month',f"${b['monthly_cashflow']:,.0f}")
+            st.caption(('✅ Targets met' if b['passed'] else '⚠️ Below one or more targets')+' · '+b['verdict'])
+    with c2:
+        with st.container(border=True):
+            st.markdown('**🛠️ Fix & Flip**')
+            a,b2=st.columns(2)
+            a.metric('Score',f"{f['score']}/100")
+            b2.metric('Pre-tax profit',f"${f['profit']:,.0f}")
+            st.caption(('✅ Targets met' if f['passed'] else '⚠️ Below one or more targets')+' · '+f['verdict'])
+    if b['passed'] and f['passed']:
+        st.success('Both strategies meet modeled financial thresholds. Compare risks and assumptions before deciding.')
+    elif b['passed']:
+        st.success('BRRRR meets modeled financial targets; Fix & Flip does not.')
+    elif f['passed']:
+        st.success('Fix & Flip meets modeled financial targets; BRRRR does not.')
+    else:
+        st.warning('Neither strategy meets all modeled financial targets at this asking price.')
+    if deal.arv_confidence!='Verified comps' or deal.rent_confidence!='Verified comps':
+        st.caption('⚠️ Preliminary: ARV and/or rent evidence has not been verified. The full explanation is in Investment Decision.')
+    else:
+        st.caption('Evidence marked verified by user; lender terms, comps, permits and repairs still require independent confirmation.')
 
 tabs=st.tabs(['🔎 Research','🛠 Renovation','💰 Assumptions','📈 Investment Decision','💾 Saved Deals'])
 with tabs[0]:
@@ -181,6 +237,8 @@ with tabs[0]:
     with a: d.arv_confidence=st.selectbox('ARV evidence',['Unverified','Verified comps'],index=['Unverified','Verified comps'].index(d.arv_confidence),help='Choose Verified comps only after you review recent comparable sold renovated properties.')
     with b: d.rent_confidence=st.selectbox('Rent evidence',['Unverified','Verified comps'],index=['Unverified','Verified comps'].index(d.rent_confidence))
     st.caption('For multifamily enter total property value and total projected monthly rent. Verify zoning and legal unit count independently.')
+    st.divider()
+    render_brief_verdict(d)
 
     st.divider()
     st.markdown('<div class="section-eyebrow">02 / Comparable screening</div>',unsafe_allow_html=True)
@@ -301,7 +359,7 @@ with tabs[3]:
     try:
         result=analyze(d)
         st.session_state.last_analysis={'inputs':asdict(d),'results':result,'timestamp':datetime.now(timezone.utc).isoformat(),
-                                        'analysis_version':'1.5',
+                                        'analysis_version':'1.6',
                                         'comparable_inputs':{'sales':st.session_state.get('comp_rows_sale',[]),'rentals':st.session_state.get('comp_rows_rent',[])}}
         b,f=result['brrrr'],result['flip']
         def money(value):
@@ -353,6 +411,25 @@ with tabs[3]:
         q1.metric('BRRRR maximum offer',f'${max_b:,.0f}' if max_b is not None else 'No feasible price in range')
         q2.metric('Flip maximum offer',f'${max_f:,.0f}' if max_f is not None else 'No feasible price in range')
         st.caption('Calculated by testing prices against the hard financial targets; not a seller acceptance prediction.')
+        with st.container(border=True):
+            st.markdown('### What if I offered a different price?')
+            st.caption('Explore how purchase price changes projected monthly BRRRR cash flow and Fix & Flip net profit. All other assumptions remain fixed.')
+            lower,upper,step=offer_range(d.price)
+            trial=st.slider('Hypothetical purchase offer ($)',min_value=lower,max_value=upper,value=min(upper,max(lower,int(round(d.price/step)*step))),step=step,key='hypothetical_offer')
+            from dataclasses import replace
+            trial_result=analyze(replace(d,price=trial))
+            sc1,sc2,sc3=st.columns(3)
+            sc1.metric('Trial offer',f'${trial:,.0f}',delta=f'${trial-d.price:,.0f} vs current price',delta_color='off')
+            sc2.metric('BRRRR cash flow',f"${trial_result['brrrr']['monthly_cashflow']:,.0f}/mo")
+            sc3.metric('Flip profit',f"${trial_result['flip']['profit']:,.0f}")
+            st.caption('The trial price is for exploration only—it does not overwrite the asking/offer price used elsewhere in the app.')
+            curve=offer_curve(d,lower,upper,step)
+            st.markdown('**Monthly BRRRR cash flow vs. purchase price**')
+            st.line_chart(curve,x='Offer',y='BRRRR cash flow / month',x_label='Purchase / offer price ($)',y_label='Monthly cash flow ($)',color='#37CBB4')
+            st.markdown('**Pre-tax Fix & Flip profit vs. purchase price**')
+            st.line_chart(curve,x='Offer',y='Flip net profit',x_label='Purchase / offer price ($)',y_label='Flip profit ($)',color='#64A8ED')
+            st.caption('Scenarios are estimates; the flip chart reflects the existing model’s financing, holding and sales assumptions. Negative values represent projected losses. This is not a quote or offer recommendation.')
+
         from core.insights import build_insights
         insights=build_insights(d,result)
         st.subheader('Decision explained — at a glance')
