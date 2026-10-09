@@ -332,6 +332,32 @@ if active_step==1:
                 st.write('**Excluded comps and reasons**')
                 st.dataframe([{'Address':a,'Reason':reason} for a,reason in comp_result['rejected']],hide_index=True,use_container_width=True)
             st.caption(comp_result['disclaimer'])
+    st.divider()
+    st.markdown('<div class="section-eyebrow">V1.9 / Renovated sale ARV scenarios</div>',unsafe_allow_html=True)
+    st.subheader('Conservative · Base · Optimistic ARV')
+    st.caption('Only explicitly checked renovated CLOSED/RECORDED sales qualify. Edit the sale comp date meaning to **recorded sale**, **closed sale** or **closing date**, and verify it from county records or closing documentation. Imported listing dates will not qualify.')
+    from core.arv_range import arv_scenarios
+    scen=arv_scenarios(st.session_state.get('comp_rows_sale',[]),subject_sqft,subject_beds,
+                       age_months=age_window,radius_miles=radius,strict_distance=unknown_distance)
+    st.session_state['arv_scenarios']=scen
+    if scen['ready']:
+        a,b,c=st.columns(3)
+        a.metric('Conservative indication',f"${scen['conservative']:,.0f}")
+        b.metric('Base indication',f"${scen['base']:,.0f}")
+        c.metric('Optimistic indication',f"${scen['optimistic']:,.0f}")
+        st.info(f"{scen['count']} eligible verified sales · {scen['confidence']}. {scen['reason']}")
+        opt=st.selectbox('ARV scenario to use for underwriting',['Conservative','Base','Optimistic'],key='v19_arv_choice')
+        chosen=scen[opt.lower()]
+        if st.button(f'Use ${chosen:,.0f} as my projected ARV',key='v19_apply_arv'):
+            d.arv=float(chosen)
+            d.arv_confidence='Unverified'
+            st.success('Projected ARV changed. Return to Step 1 to review the editable value and Step 5 for a new financial analysis. Evidence remains flagged for manual verification.')
+    else:
+        st.warning(scen['reason']+' No automatic ARV is populated.')
+    if scen['rejected']:
+        with st.expander('Why sale comps were excluded from the V1.9 ARV range'):
+            st.dataframe([{'Comparable':a,'Reason':why} for a,why in scen['rejected']],hide_index=True,use_container_width=True)
+    st.caption('The range uses observed 20th/median/80th percentiles, not a probabilistic forecast. Square-foot normalization is simplistic and does not adjust for lot, finished basement, garage, bathroom count, concessions or neighborhood micro-markets.')
     st.warning('Comp analysis is decision support, not an appraisal. Verify property similarity, sales concessions, distance, renovation quality and local rent restrictions before treating figures as reliable.')
     nav_controls(1)
 
@@ -339,14 +365,49 @@ if active_step==2:
     st.markdown('<div class="section-eyebrow">03 / Plan the renovation</div>',unsafe_allow_html=True)
     st.subheader('Renovation planning')
     st.caption('Enter the actual contractor bids + DIY materials and out-of-pocket labor costs. Detailed line-item planning is supported below.')
-    default_items={'Kitchen':12000.,'Bathrooms':8000.,'Flooring':4500.,'Paint':2500.,'Electrical / plumbing':4000.,'Exterior / other':4000.}
-    if 'rehab_items' not in st.session_state: st.session_state.rehab_items=default_items.copy()
-    c1,c2=st.columns(2)
-    for i,(name,val) in enumerate(st.session_state.rehab_items.items()):
-        with (c1 if i%2==0 else c2):
-            st.session_state.rehab_items[name]=st.number_input(name,min_value=0.,value=float(val),step=500.,key='rehab_'+name)
-    d.rehab=sum(st.session_state.rehab_items.values())
-    st.metric('Base renovation budget',f'${d.rehab:,.0f}')
+    from core.rehab_estimator import template, estimate_scope
+    if 'rehab_items' not in st.session_state:
+        st.session_state.rehab_items={'Kitchen':12000.,'Bathrooms':8000.,'Flooring':4500.,'Paint':2500.,'Electrical / plumbing':4000.,'Exterior / other':4000.}
+    if 'rehab_rows' not in st.session_state:
+        st.session_state.rehab_rows=template()
+    mode=st.radio('How would you like to estimate renovations?',['Quick category budget','Detailed quantity + DIY / contractor estimate'],horizontal=True,key='v19_rehab_mode')
+    if mode=='Quick category budget':
+        x,y=st.columns(2)
+        for i,(name,val) in enumerate(st.session_state.rehab_items.items()):
+            with (x if i%2==0 else y):
+                st.session_state.rehab_items[name]=st.number_input(name,min_value=0.0,value=float(val),step=500.0,key='rehab_'+name)
+        d.rehab=sum(st.session_state.rehab_items.values())
+        st.metric('Base rehab cash budget',f'${d.rehab:,.0f}')
+    else:
+        st.caption('Enter quantities and edit unit prices based on actual contractor bids or material quotes. All template quantities start at zero. Example rates are placeholders, NOT verified Cleveland pricing.')
+        rows=st.data_editor(st.session_state.rehab_rows,key='v19_rehab_editor',num_rows='dynamic',use_container_width=True,
+            column_config={'scope':st.column_config.TextColumn('Area'), 'item':st.column_config.TextColumn('Work item'),
+                'unit':st.column_config.TextColumn('Unit'), 'quantity':st.column_config.NumberColumn('Qty',min_value=0.0),
+                'materials_per_unit':st.column_config.NumberColumn('Materials / unit ($)',min_value=0.0),
+                'contractor_labor_per_unit':st.column_config.NumberColumn('Contractor labor / unit ($)',min_value=0.0),
+                'diy_labor_hours_per_unit':st.column_config.NumberColumn('DIY hours / unit',min_value=0.0),
+                'method':st.column_config.SelectboxColumn('Labor',options=['DIY','Contractor'],required=True)})
+        st.session_state.rehab_rows=rows
+        hourly=st.number_input('Value your DIY time at ($/hour) — opportunity-cost calculation only',min_value=0.0,max_value=500.0,value=25.0,step=5.0,key='v19_diy_hourly')
+        try:
+            quote=estimate_scope(rows,diy_hourly_value=hourly)
+            st.session_state.rehab_quote=quote
+            col1,col2,col3=st.columns(3)
+            col1.metric('Estimated cash outlay',f"${quote['cash_total']:,.0f}")
+            col2.metric('Your DIY hours',f"{quote['diy_hours']:,.0f} h")
+            col3.metric('Cash + time value',f"${quote['economic_cost']:,.0f}")
+            if st.button('Apply detailed cash budget to BRRRR and Flip',type='primary',key='v19_apply_rehab'):
+                d.rehab=float(quote['cash_total'])
+                st.session_state.rehab_applied_quote=quote['cash_total']
+                st.success(f'Applied ${d.rehab:,.0f} to both strategies. Contingency and permits are added separately.')
+            if st.session_state.get('rehab_applied_quote')!=quote['cash_total']:
+                st.warning('Detailed total has not been applied (or changed since last application). The financial model still uses the previously applied rehab amount.')
+            st.caption(f"Current financial-model BASE rehab: ${d.rehab:,.0f}. DIY time value is shown separately; it is NOT double-counted as a cash expense.")
+            with st.expander('Calculated detailed line items'):
+                st.dataframe(quote['items'],hide_index=True,use_container_width=True)
+        except ValueError as exc:
+            st.error(f'Check rehab quantities/rates: {exc}')
+    st.caption('The 15% contingency, permits/special allowances, loan interest and holding costs are separate inputs; do not double-count them in the item rates.')
     d.contingency=st.slider('Contingency (%)',0,35,int(d.contingency*100))/100
     d.rehab_reserve_extra=st.number_input('Permits / special allowances ($)',0.,100000.,float(d.rehab_reserve_extra),step=500.)
     d.rehab_months=st.number_input('Rehab duration (months)',1,36,int(d.rehab_months))
@@ -400,7 +461,7 @@ if active_step==4:
             raise ValueError('The property address changed since your last lookup. Run Find property & comps before scoring this different property.')
         result=analyze(d)
         st.session_state.last_analysis={'inputs':asdict(d),'results':result,'timestamp':datetime.now(timezone.utc).isoformat(),
-                                        'analysis_version':'1.8',
+                                        'analysis_version':'1.9',
                                         'comparable_inputs':{'sales':st.session_state.get('comp_rows_sale',[]),'rentals':st.session_state.get('comp_rows_rent',[])}}
         b,f=result['brrrr'],result['flip']
         def money(value):
@@ -548,7 +609,7 @@ if active_step==5:
                         raise ValueError('Enter a price and projected renovated ARV in Step 1 before saving.')
                     if st.session_state.address_last_imported and d.address.strip().casefold()!=st.session_state.address_last_imported.casefold():
                         raise ValueError('Address differs from the last lookup. Re-run property lookup before saving.')
-                    payload={'inputs':asdict(d),'results':analyze(d),'timestamp':datetime.now(timezone.utc).isoformat(),'analysis_version':'1.8','comparable_inputs':{'sales':st.session_state.get('comp_rows_sale',[]),'rentals':st.session_state.get('comp_rows_rent',[])}}
+                    payload={'inputs':asdict(d),'results':analyze(d),'timestamp':datetime.now(timezone.utc).isoformat(),'analysis_version':'1.9','comparable_inputs':{'sales':st.session_state.get('comp_rows_sale',[]),'rentals':st.session_state.get('comp_rows_rent',[])}}
                     save_deal(sb_url,sb_key,st.session_state.auth_token,st.session_state.auth_uid,d.address or 'Untitled property',payload)
                     st.success('Saved to your private deals.')
                 except Exception as exc: st.error(f'Could not save: {exc}')

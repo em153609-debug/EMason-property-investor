@@ -108,3 +108,12 @@ Deploy: back up your working repo, unzip the V1.7 patch at repository root, run 
 - First session starts with empty/zero subject prices, preventing misleading sample deal scores. The investment preview waits for price and ARV.
 - Re-searching the same address keeps your manually edited underwriting fields.
 - No database schema or secrets changes. Tests in `tests/test_property_import.py`.
+
+## V1.9 — Renovated ARV scenario evidence and itemized rehab
+- Step 2: conservative/base/optimistic indications use only rows with **Use**, **Renovated confirmed**, a user-confirmed *closed/recorded sale date type*, a valid sold price/date, and eligible size/bedroom/radius filters. At least 3 eligible comps are required. Imported RentCast AVM listing activity **never qualifies automatically**.
+- Indicators are 20th/50th/80th percentiles of simplistic size-scaled verified comparables; they are NOT appraisals or probability intervals. An analyst must explicitly select and apply one to projected ARV.
+- Step 3: choose Quick category budget (existing behavior) or Detailed scope estimate (editable quantity, units, materials rate, contractor labor rate, DIY labor hours and labor method). Example rates are templates, **not Cleveland-specific real-time cost quotes**. Quantities default to zero to prevent misleading totals.
+- Detailed rehab cash estimate is adopted only with **Apply detailed cash budget**, and the model adds contingency/permits separately. DIY time value is only economic comparison; not added to cash budget.
+- No changes to external API requests, credentials, schema migrations or stored Supabase deal shape. Existing version 1.8 snapshots remain readable.
+- Update: upload ZIP, run `git status` and `git pull origin main` if clean, unzip, run `python -m pytest -q`, then commit `app.py core/arv_range.py core/rehab_estimator.py tests/test_v19.py README.md` and push to `main`.
+- For an audit: the existing quick category budget still drives rehab unless the detailed estimate is deliberately applied. The upgraded evidence UI is still analyst-driven; do not represent this as automatically verified rehab or ARV.
